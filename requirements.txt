@@ -1,0 +1,9 @@
+croniter==0.3.17
+psycopg2==2.7.1
+py==1.4.33
+pytest==3.1.1
+python-dateutil==2.6.0
+six==1.10.0
+SQLAlchemy==1.1.10
+taskflow==0.1.dev0
+toposort==1.5
