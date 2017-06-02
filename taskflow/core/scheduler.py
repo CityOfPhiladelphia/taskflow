@@ -94,16 +94,16 @@ class Scheduler(object):
         return datetime.utcnow()
 
     def run(self):
-        ## TODO: at some point, timeout queued workflow instances that have gone an interval past their run_at
+        ## TODO: allow for dry_run
 
         now = self.now()
 
         ##### Workflow scheduling
 
-        workflows = filter(lambda workflow: workflow.active == True,
-                           self.taskflow.get_fresh_workflows(self.session))
+        recurring_workflows = filter(lambda workflow: workflow.active == True and workflow.schedule != None,
+                                     self.taskflow.get_fresh_workflows(self.session))
 
-        for workflow in workflows:
+        for workflow in recurring_workflows:
             # try: !!! add this back after dev
                 ## TODO: order by heartbeat instead ?
                 most_recent_instance = self.session.query(WorkflowInstance)\
@@ -112,19 +112,7 @@ class Scheduler(object):
                                         .order_by(WorkflowInstance.run_at.desc())\
                                         .first()
 
-                if most_recent_instance:
-                    if most_recent_instance.status == 'queued' and most_recent_instance.run_at <= now:
-                        most_recent_instance.status = 'running'
-                        self.queue_workflow_tasks(most_recent_instance)
-                        self.session.commit()
-                    elif most_recent_instance.status == 'running':
-                        self.queue_workflow_tasks(most_recent_instance)
-                        self.session.commit()
-
-                ## cron scheduled workflows
-                if workflow.schedule != None and \
-                    (not most_recent_instance or \
-                      most_recent_instance.status in ['success','failed']):
+                if not most_recent_instance or most_recent_instance.status in ['success','failed']:
                     if not most_recent_instance: ## first run
                         next_run = workflow.next_run(base_time=now)
                     else:
@@ -142,6 +130,22 @@ class Scheduler(object):
             #     ## TODO: switch to logger
             #     print('Exception scheduling Workflow "{}"'.format(workflow.name))
             #     print(e)
+
+
+        queued_running_workflow_instances = \
+            self.session.query(WorkflowInstance)\
+            .filter(WorkflowInstance.status.in_(['queued','running'])).all()
+
+        for workflow_instance in queued_running_workflow_instances:
+            if workflow_instance.status == 'queued' and workflow_instance.run_at <= now:
+                workflow_instance.status = 'running'
+                self.queue_workflow_tasks(workflow_instance)
+                self.session.commit()
+            elif workflow_instance.status == 'running':
+                ## TODO: timeout queued workflow instances that have gone an interval past their run_at
+                self.queue_workflow_tasks(workflow_instance)
+                self.session.commit()
+
 
         ##### Task scheduling - tasks that do not belong to a workflow
 
