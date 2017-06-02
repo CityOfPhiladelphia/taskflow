@@ -5,5 +5,5 @@ pytest==3.1.1
 python-dateutil==2.6.0
 six==1.10.0
 SQLAlchemy==1.1.10
-taskflow==0.1.dev0
+-e git+git@github.com:awm33/taskflow.git@339897e685c8746abe3df36160d051328a2ee6e4#egg=taskflow
 toposort==1.5

@@ -207,6 +207,12 @@ class WorkflowInstance(BaseModel):
                         server_default=func.now(),
                         onupdate=func.now())
 
+    def __repr__(self):
+        return '<WorkflowInstance workflow: {} run_at: {} status: {}>'.format(
+                    self.workflow,
+                    self.run_at,
+                    self.status) 
+
 class TaskInstance(BaseModel):
     __tablename__ = 'task_instances'
 
