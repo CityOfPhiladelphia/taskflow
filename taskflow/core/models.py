@@ -97,6 +97,8 @@ class Task(BaseModel):
     schedule = None
     start_date = None
     end_date = None
+    params = None
+    push_destination = None
     fn = None
 
     _dependencies = None
@@ -115,6 +117,8 @@ class Task(BaseModel):
         schedule=None,
         start_date=None,
         end_date=None,
+        params=None,
+        push_destination=None,
         fn=None):
 
         self.name = name
@@ -138,6 +142,9 @@ class Task(BaseModel):
         self.start_date = start_date
         self.end_date = end_date
 
+        self.params = params
+
+        self.push_destination = push_destination
         self.fn = fn
 
         self._dependencies = set()
@@ -220,10 +227,12 @@ class TaskInstance(BaseModel):
     task = Column(String, nullable=False)
     workflow_instance = Column(BigInteger, ForeignKey('workflow_instances.id'))
     status = Column(String, nullable=False)
+    push = Column(Boolean)  ## TODO: default False ? nullable=False ?
     run_at = Column(DateTime) ## TODO: nullable=False ?
     started_at = Column(DateTime)
     ended_at = Column(DateTime)
     params = Column(JSONB)
+    push_data = Column(JSONB)
     attempts = Column(Integer) ## TODO: default 0 ? nullable=False ?
     created_at = Column(DateTime,
                         nullable=False,

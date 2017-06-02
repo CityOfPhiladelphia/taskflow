@@ -54,7 +54,7 @@ def workflows(dbsession):
     dbsession.commit()
     return [workflow1, workflow2]
 
-def test_queue_future_workflow(dbsession, workflows):
+def test_schedule_recurring_workflow(dbsession, workflows):
     taskflow = Taskflow()
     taskflow.add_workflows(workflows)
     scheduler = Scheduler(dbsession, taskflow, now_override=datetime(2017, 6, 3, 6))

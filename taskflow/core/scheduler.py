@@ -100,7 +100,7 @@ class Scheduler(object):
 
         ##### Workflow scheduling
 
-        workflows = filter(lambda workflow: workflow.active == True and workflow.schedule != None,
+        workflows = filter(lambda workflow: workflow.active == True,
                            self.taskflow.get_fresh_workflows(self.session))
 
         for workflow in workflows:
@@ -112,31 +112,31 @@ class Scheduler(object):
                                         .order_by(WorkflowInstance.run_at.desc())\
                                         .first()
 
-                if most_recent_instance: ## TODO: separate this out? this could be used by non-recurring workflows
+                if most_recent_instance:
                     if most_recent_instance.status == 'queued' and most_recent_instance.run_at <= now:
                         most_recent_instance.status = 'running'
                         self.queue_workflow_tasks(most_recent_instance)
                         self.session.commit()
-                        continue
-
-                    if most_recent_instance.status == 'running':
+                    elif most_recent_instance.status == 'running':
                         self.queue_workflow_tasks(most_recent_instance)
                         self.session.commit()
+
+                ## cron scheduled workflows
+                if workflow.schedule != None and \
+                    (not most_recent_instance or \
+                      most_recent_instance.status in ['success','failed']):
+                    if not most_recent_instance: ## first run
+                        next_run = workflow.next_run(base_time=now)
+                    else:
+                        next_run = workflow.next_run(base_time=most_recent_instance.run_at)
+                        last_run = workflow.last_run(base_time=now)
+                        if last_run > next_run:
+                            next_run = last_run
+
+                    if workflow.start_date and next_run < workflow.start_date or \
+                        workflow.end_date and next_run > workflow.end_date:
                         continue
 
-                if not most_recent_instance: ## first run
-                    next_run = workflow.next_run(base_time=now)
-                else:
-                    next_run = workflow.next_run(base_time=most_recent_instance.run_at)
-                    last_run = workflow.last_run(base_time=now)
-                    if last_run > next_run:
-                        next_run = last_run
-
-                if workflow.start_date and next_run < workflow.start_date or \
-                    workflow.end_date and next_run > workflow.end_date:
-                    continue
-
-                if not most_recent_instance or most_recent_instance.status in ['success','failed']:
                     self.queue_workflow(workflow, next_run)
             # except Exception as e:
             #     ## TODO: switch to logger
