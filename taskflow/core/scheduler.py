@@ -13,6 +13,18 @@ class Scheduler(object):
 
         self.now_override = now_override
 
+    def queue_task(self, task, run_at):
+        if run_at == None:
+            run_at = self.now()
+
+        task_instance = TaskInstance(
+            task=task.name,
+            scheduled=True,
+            status='queued',
+            run_at=run_at,
+            attempts=0)
+        self.session.add(task_instance)
+
     def queue_workflow_task(self, workflow, task_name, workflow_instance, run_at=None):
         if run_at == None:
             run_at = self.now()
@@ -29,7 +41,6 @@ class Scheduler(object):
         workflow = self.taskflow.get_workflow(workflow_instance.workflow)
         dep_graph = workflow.get_dependencies_graph()
         dep_graph = list(toposort(dep_graph))
-        print(dep_graph)
 
         results = self.session.query(TaskInstance)\
                     .filter(TaskInstance.workflow_instance == workflow_instance.id).all()

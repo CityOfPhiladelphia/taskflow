@@ -13,13 +13,6 @@ BaseModel = declarative_base(metadata=metadata)
 class Schedulable(object):
     name = Column(String, primary_key=True)
     active = Column(Boolean, nullable=False)
-    title = None
-    description = None
-    concurrency = None
-    sla = None
-    schedule = None
-    start_date = None
-    end_date = None
 
     def __init__(
         self,
@@ -91,15 +84,6 @@ class Workflow(Schedulable, BaseModel):
 class Task(Schedulable, BaseModel):
     __tablename__ = 'tasks'
 
-    workflow=None
-    max_retries = None
-    timeout = None
-    params = None
-    push_destination = None
-    fn = None
-
-    _dependencies = None
-
     def __init__(
         self,
         workflow=None,
@@ -131,11 +115,14 @@ class Task(Schedulable, BaseModel):
 
     def depends_on(self, task):
         ## TODO: warn when task already in _dependencies?
+        if self.workflow == None:
+            raise Exception('Task dependencies only work with Workflows')
         self._dependencies.add(task.name)
 
 class Taskflow(object):
-    _workflows = dict()
-    _tasks = dict()
+    def __init__(self):
+        self._workflows = dict()
+        self._tasks = dict()
 
     def add_workflow(self, workflow):
         self._workflows[workflow.name] = workflow
@@ -152,15 +139,26 @@ class Taskflow(object):
             workflow.refresh(session)
         return self._workflows.values()
 
+    def add_task(self, task):
+        if task.workflow != None:
+            raise Exception('Tasks with workflows are not added individually, just add the workflow')
+        self._tasks[task.name] = task
+
+    def add_tasks(self, tasks):
+        for task in tasks:
+            self.add_task(task)
+
     def get_fresh_tasks(self, session):
         for task in self._tasks.values():
             task.refresh(session)
         return self._tasks.values()
 
-    def add_task(self, task):
-        if task.workflow:
-            raise Exception('Tasks with workflows are not added individually, just add the workflow')
-        self._tasks.add(task)
+    def persist(self, session): ## TODO: make upsert?
+        for workflow in self._workflows.values():
+            session.add(workflow) ## TODO: workflows tasks as well?
+        for task in self._tasks.values():
+            session.add(task)
+        session.commit()
 
 class SchedulableInstance(object):
     id = Column(BigInteger, primary_key=True)
