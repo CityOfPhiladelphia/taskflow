@@ -2,8 +2,9 @@ from datetime import datetime
 from functools import reduce
 
 from toposort import toposort
+from sqlalchemy import or_, and_
 
-from .models import Workflow, WorkflowInstance, TaskInstance
+from .models import Workflow, WorkflowInstance, Task, TaskInstance
 
 class Scheduler(object):
     def __init__(self, session, taskflow, now_override=None):
@@ -93,64 +94,100 @@ class Scheduler(object):
             return self.now_override
         return datetime.utcnow()
 
-    def run(self):
-        ## TODO: allow for dry_run
+    def schedule_recurring(self, definition_class):
+        """Schedules recurring Workflows or Tasks
+           definition_class - Workflow or Task"""
+
+        if definition_class == Workflow:
+            instance_class = WorkflowInstance
+            fresh_recurring_items = self.taskflow.get_fresh_workflows(self.session)
+        elif definition_class == Task:
+            instance_class = TaskInstance
+            fresh_recurring_items = self.taskflow.get_fresh_tasks(self.session)
+        else:
+            raise Exception('definition_class must be Workflow or Task')
 
         now = self.now()
 
-        ##### Workflow scheduling
+        ## get Workflows or Tasks from Taskflow instance
+        recurring_items = filter(lambda item: item.active == True and item.schedule != None,
+                                 fresh_recurring_items)
 
-        recurring_workflows = filter(lambda workflow: workflow.active == True and workflow.schedule != None,
-                                     self.taskflow.get_fresh_workflows(self.session))
-
-        for workflow in recurring_workflows:
+        for item in recurring_items:
             # try: !!! add this back after dev
+                if definition_class == Workflow:
+                    filters = (instance_class.workflow == item.name,)
+                else:
+                    filters = (instance_class.task == item.name,)
+                filters += (instance_class.scheduled == True,)
+
+                ## Get the most recent instance of the recurring item
                 ## TODO: order by heartbeat instead ?
-                most_recent_instance = self.session.query(WorkflowInstance)\
-                                        .filter(WorkflowInstance.workflow == workflow.name,
-                                                WorkflowInstance.scheduled == True)\
-                                        .order_by(WorkflowInstance.run_at.desc())\
+                most_recent_instance = self.session.query(instance_class)\
+                                        .filter(*filters)\
+                                        .order_by(instance_class.run_at.desc())\
                                         .first()
 
                 if not most_recent_instance or most_recent_instance.status in ['success','failed']:
                     if not most_recent_instance: ## first run
-                        next_run = workflow.next_run(base_time=now)
+                        next_run = item.next_run(base_time=now)
                     else:
-                        next_run = workflow.next_run(base_time=most_recent_instance.run_at)
-                        last_run = workflow.last_run(base_time=now)
+                        next_run = item.next_run(base_time=most_recent_instance.run_at)
+                        last_run = item.last_run(base_time=now)
                         if last_run > next_run:
                             next_run = last_run
 
-                    if workflow.start_date and next_run < workflow.start_date or \
-                        workflow.end_date and next_run > workflow.end_date:
+                    if item.start_date and next_run < item.start_date or \
+                        item.end_date and next_run > item.end_date:
                         continue
 
-                    self.queue_workflow(workflow, next_run)
+                    if definition_class == Workflow:
+                        self.queue_workflow(item, next_run)
+                    else:
+                        self.queue_task(item, next_run)
             # except Exception as e:
             #     ## TODO: switch to logger
-            #     print('Exception scheduling Workflow "{}"'.format(workflow.name))
+            #     ## TODO: rollback?
+            #     print('Exception scheduling Workflow "{}"'.format(item.name))
             #     print(e)
 
+    def move_workflows_forward(self):
+        """Moves queued and running workflows forward"""
+        now = self.now()
 
         queued_running_workflow_instances = \
             self.session.query(WorkflowInstance)\
-            .filter(WorkflowInstance.status.in_(['queued','running'])).all()
+            .filter(or_(WorkflowInstance.status == 'running',
+                        and_(WorkflowInstance.status == 'queued',
+                             WorkflowInstance.run_at <= now)))\
+            .all() ## TODO: paginate?
 
         for workflow_instance in queued_running_workflow_instances:
-            if workflow_instance.status == 'queued' and workflow_instance.run_at <= now:
-                workflow_instance.status = 'running'
-                self.queue_workflow_tasks(workflow_instance)
-                self.session.commit()
-            elif workflow_instance.status == 'running':
-                ## TODO: timeout queued workflow instances that have gone an interval past their run_at
-                self.queue_workflow_tasks(workflow_instance)
-                self.session.commit()
+            # try: !!! add this back after dev
+                if workflow_instance.status == 'queued':
+                    workflow_instance.status = 'running'
+                    self.queue_workflow_tasks(workflow_instance)
+                    self.session.commit()
+                elif workflow_instance.status == 'running':
+                    ## TODO: timeout queued workflow instances that have gone an interval past their run_at
+                    self.queue_workflow_tasks(workflow_instance)
+                    self.session.commit()
+            # except Exception as e:
+            #     ## TODO: switch to logger
+            #     ## TODO: rollback?
+            #     print('Exception scheduling Workflow "{}"'.format(item.name))
+            #     print(e)
+
+    def run(self):
+        ## TODO: allow for dry_run
+
+        ##### Workflow scheduling
+
+        self.schedule_recurring(Workflow)
+
+        self.move_workflows_forward()
 
 
         ##### Task scheduling - tasks that do not belong to a workflow
 
-        tasks = filter(lambda workflow: task.active == True and task.schedule != None,
-                       self.taskflow.get_fresh_tasks(self.session))
-
-        for task in tasks:
-            print(task)
+        self.schedule_recurring(Task)

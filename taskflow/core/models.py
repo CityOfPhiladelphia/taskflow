@@ -10,9 +10,7 @@ BaseModel = declarative_base(metadata=metadata)
 
 ## TODO: refactor Workflow and Task to share scheduling fields and methods?
 
-class Workflow(BaseModel):
-    __tablename__ = 'workflows'
-
+class Schedulable(object):
     name = Column(String, primary_key=True)
     active = Column(Boolean, nullable=False)
     title = None
@@ -22,8 +20,6 @@ class Workflow(BaseModel):
     schedule = None
     start_date = None
     end_date = None
-
-    _tasks = None
 
     def __init__(
         self,
@@ -39,7 +35,7 @@ class Workflow(BaseModel):
 
         self.name = name
         if not self.name:
-            raise Exception('`name` required for Workflow')
+            raise Exception('`name` required for {}'.format(self.__class__.__name__))
 
         self.active = active
         self.title = title
@@ -51,13 +47,9 @@ class Workflow(BaseModel):
         self.start_date = start_date
         self.end_date = end_date
 
-        self._tasks = set()
-
-    def __repr__(self):
-        return '<Workflow name: {} active: {}>'.format(self.name, self.active)
-
     def refresh(self, session):
-        persisted = session.query(Workflow).filter(Workflow.name == self.name).first()
+        recurring_class = self.__class__
+        persisted = session.query(recurring_class).filter(recurring_class.name == self.name).first()
         self.active = persisted.active
 
     def next_run(self, base_time=None):
@@ -72,6 +64,19 @@ class Workflow(BaseModel):
         iter = croniter(self.schedule, base_time)
         return iter.get_prev(datetime)
 
+class Workflow(Schedulable, BaseModel):
+    __tablename__ = 'workflows'
+
+    _tasks = None
+
+    def __init__(self, *args, **kwargs):
+        super(Workflow, self).__init__(*args, **kwargs)
+
+        self._tasks = set()
+
+    def __repr__(self):
+        return '<Workflow name: {} active: {}>'.format(self.name, self.active)
+
     def get_dependencies_graph(self):
         graph = dict()
         for task in self._tasks:
@@ -83,20 +88,12 @@ class Workflow(BaseModel):
             if task.name == task_name:
                 return task
 
-class Task(BaseModel):
+class Task(Schedulable, BaseModel):
     __tablename__ = 'tasks'
 
-    name = Column(String, primary_key=True)
-    active = Column(Boolean, nullable=False)
-    title = None
-    description = None
-    concurrency = None
+    workflow=None
     max_retries = None
     timeout = None
-    sla = None
-    schedule = None
-    start_date = None
-    end_date = None
     params = None
     push_destination = None
     fn = None
@@ -106,41 +103,21 @@ class Task(BaseModel):
     def __init__(
         self,
         workflow=None,
-        name=None,
-        active=False,
-        title=None,
-        description=None,
-        concurrency=1,
         max_retries=1,
         timeout=300,
-        sla=None,
-        schedule=None,
-        start_date=None,
-        end_date=None,
         params=None,
         push_destination=None,
-        fn=None):
-
-        self.name = name
-        if not self.name:
-            raise Exception('`name` required for Task')
+        fn=None,
+        *args, **kwargs):
+        super(Task, self).__init__(*args, **kwargs)
 
         self.workflow = workflow
         if self.workflow:
             ## TODO: warn when task already in tasks?
             self.workflow._tasks.add(self)
 
-        self.active = active
-        self.title = title
-        self.description = description
-        self.concurrency = concurrency
         self.max_retries = max_retries
         self.timeout = timeout
-        self.sla = sla
-
-        self.schedule = schedule
-        self.start_date = start_date
-        self.end_date = end_date
 
         self.params = params
 
@@ -152,19 +129,9 @@ class Task(BaseModel):
     def __repr__(self):
         return '<Task name: {} active: {}>'.format(self.name, self.active)
 
-    def refresh(self, session):
-        persisted = session.query(Task).filter(Task.name == self.name).first()
-        self.active = persisted.active
-
     def depends_on(self, task):
         ## TODO: warn when task already in _dependencies?
         self._dependencies.add(task.name)
-
-    def next_run(self, base_time=None):
-        if not base_time:
-            base_time = self.start_date
-        iter = croniter(self.schedule, base_time)
-        return iter.get_next(datetime)
 
 class Taskflow(object):
     _workflows = dict()
@@ -195,17 +162,13 @@ class Taskflow(object):
             raise Exception('Tasks with workflows are not added individually, just add the workflow')
         self._tasks.add(task)
 
-class WorkflowInstance(BaseModel):
-    __tablename__ = 'workflow_instances'
-
+class SchedulableInstance(object):
     id = Column(BigInteger, primary_key=True)
-    workflow = Column(String, nullable=False)
     scheduled = Column(Boolean) ## TODO: nullable=False ? default ?
     run_at = Column(DateTime) ## TODO: nullable=False ?
     started_at = Column(DateTime)
     ended_at = Column(DateTime)
     status = Column(String, nullable=False)
-    params = Column(JSONB)
     created_at = Column(DateTime,
                         nullable=False,
                         server_default=func.now())
@@ -213,6 +176,12 @@ class WorkflowInstance(BaseModel):
                         nullable=False,
                         server_default=func.now(),
                         onupdate=func.now())
+
+class WorkflowInstance(SchedulableInstance, BaseModel):
+    __tablename__ = 'workflow_instances'
+
+    workflow = Column(String, nullable=False)
+    params = Column(JSONB)
 
     def __repr__(self):
         return '<WorkflowInstance workflow: {} run_at: {} status: {}>'.format(
@@ -220,27 +189,15 @@ class WorkflowInstance(BaseModel):
                     self.run_at,
                     self.status) 
 
-class TaskInstance(BaseModel):
+class TaskInstance(SchedulableInstance, BaseModel):
     __tablename__ = 'task_instances'
 
-    id = Column(BigInteger, primary_key=True)
     task = Column(String, nullable=False)
     workflow_instance = Column(BigInteger, ForeignKey('workflow_instances.id'))
-    status = Column(String, nullable=False)
     push = Column(Boolean)  ## TODO: default False ? nullable=False ?
-    run_at = Column(DateTime) ## TODO: nullable=False ?
-    started_at = Column(DateTime)
-    ended_at = Column(DateTime)
     params = Column(JSONB)
     push_data = Column(JSONB)
     attempts = Column(Integer) ## TODO: default 0 ? nullable=False ?
-    created_at = Column(DateTime,
-                        nullable=False,
-                        server_default=func.now())
-    updated_at = Column(DateTime,
-                        nullable=False,
-                        server_default=func.now(),
-                        onupdate=func.now())
 
     def __repr__(self):
         return '<TaskInstance task: {} workflow_instance: {} status: {}>'.format(
