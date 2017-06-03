@@ -17,24 +17,21 @@ class Scheduler(object):
         if run_at == None:
             run_at = self.now()
 
-        task_instance = TaskInstance(
-            task=task.name,
-            scheduled=True,
-            status='queued',
-            run_at=run_at,
-            attempts=0)
+        task_instance = task.get_new_instance(scheduled=True,
+                                              run_at=run_at)
         self.session.add(task_instance)
 
     def queue_workflow_task(self, workflow, task_name, workflow_instance, run_at=None):
         if run_at == None:
             run_at = self.now()
 
-        task_instance = TaskInstance(
-            task=task_name,
-            workflow_instance=workflow_instance.id,
-            status='queued',
+        task = workflow.get_task(task_name)
+
+        task_instance = task.get_new_instance(
+            scheduled=True,
             run_at=run_at,
-            attempts=0)
+            workflow_instance=workflow_instance.id,
+            priority=workflow_instance.priority or workflow.default_priority)
         self.session.add(task_instance)
 
     def queue_workflow_tasks(self, workflow_instance):
@@ -89,11 +86,9 @@ class Scheduler(object):
 
     def queue_workflow(self, workflow, run_at):
         ## TODO: ensure this is in a transaction with queue_tasks ?
-        workflow_instance = WorkflowInstance(
-            workflow=workflow.name,
+        workflow_instance = workflow.get_new_instance(
             scheduled=True,
-            run_at=run_at,
-            status='queued')
+            run_at=run_at)
         self.session.add(workflow_instance)
         if workflow_instance.run_at <= self.now():
             self.queue_workflow_tasks(workflow_instance)
@@ -202,3 +197,5 @@ class Scheduler(object):
         ##### Task scheduling - tasks that do not belong to a workflow
 
         self.schedule_recurring(Task)
+
+        ## TODO: push tasks

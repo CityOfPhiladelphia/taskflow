@@ -1,14 +1,23 @@
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Boolean, func, ForeignKey, MetaData
+from sqlalchemy import (
+    Column,
+    Integer,
+    BigInteger,
+    String,
+    DateTime,
+    Boolean,
+    Enum,
+    func,
+    ForeignKey,
+    MetaData
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from croniter import croniter
 
 metadata = MetaData()
 BaseModel = declarative_base(metadata=metadata)
-
-## TODO: refactor Workflow and Task to share scheduling fields and methods?
 
 class Schedulable(object):
     name = Column(String, primary_key=True)
@@ -23,6 +32,7 @@ class Schedulable(object):
         concurrency=1,
         sla=None,
         schedule=None,
+        default_priority='normal',
         start_date=None,
         end_date=None):
 
@@ -37,6 +47,7 @@ class Schedulable(object):
         self.sla = sla
 
         self.schedule = schedule
+        self.default_priority = default_priority
         self.start_date = start_date
         self.end_date = end_date
 
@@ -81,6 +92,14 @@ class Workflow(Schedulable, BaseModel):
             if task.name == task_name:
                 return task
 
+    def get_new_instance(self, scheduled=False, status='queued', run_at=None, priority=None):
+        return WorkflowInstance(
+            workflow=self.name,
+            scheduled=scheduled,
+            run_at=run_at or datetime.utcnow(),
+            status=status,
+            priority=priority or self.default_priority)
+
 class Task(Schedulable, BaseModel):
     __tablename__ = 'tasks'
 
@@ -97,7 +116,8 @@ class Task(Schedulable, BaseModel):
 
         self.workflow = workflow
         if self.workflow:
-            ## TODO: warn when task already in tasks?
+            if self in self.workflow._tasks:
+                raise Exception('`{}` already added to workflow `{}`'.format(self.name, self.workflow.name))
             self.workflow._tasks.add(self)
 
         self.max_retries = max_retries
@@ -114,10 +134,28 @@ class Task(Schedulable, BaseModel):
         return '<Task name: {} active: {}>'.format(self.name, self.active)
 
     def depends_on(self, task):
-        ## TODO: warn when task already in _dependencies?
         if self.workflow == None:
             raise Exception('Task dependencies only work with Workflows')
+        if task.name in self._dependencies:
+            raise Exception('`{}` already depends on `{}`'.format(self.name, task.name))
+        if self.name == task.name:
+            raise Exception('A task cannot depend on itself')
         self._dependencies.add(task.name)
+
+    def get_new_instance(self,
+                         scheduled=False,
+                         status='queued',
+                         workflow_instance=None,
+                         run_at=None,
+                         priority=None):
+        return TaskInstance(
+            task=self.name,
+            workflow_instance=workflow_instance,
+            scheduled=scheduled,
+            push=self.push_destination != None,
+            status=status,
+            priority=priority or self.default_priority,
+            run_at=run_at or datetime.utcnow())
 
 class Taskflow(object):
     def __init__(self):
@@ -148,6 +186,9 @@ class Taskflow(object):
         for task in tasks:
             self.add_task(task)
 
+    def get_task(self, task_name):
+        return self._tasks[task_name]
+
     def get_fresh_tasks(self, session):
         for task in self._tasks.values():
             task.refresh(session)
@@ -162,11 +203,25 @@ class Taskflow(object):
 
 class SchedulableInstance(object):
     id = Column(BigInteger, primary_key=True)
-    scheduled = Column(Boolean) ## TODO: nullable=False ? default ?
-    run_at = Column(DateTime) ## TODO: nullable=False ?
+    scheduled = Column(Boolean, nullable=False)
+    run_at = Column(DateTime, nullable=False)
     started_at = Column(DateTime)
     ended_at = Column(DateTime)
-    status = Column(String, nullable=False)
+    status = Column(Enum('queued',
+                         'running',
+                         'retrying',
+                         'dequeued',
+                         'failed',
+                         'success',
+                         name='taskflow_statuses'),
+                    nullable=False)
+    priority = Column(Enum('critical',
+                           'high',
+                           'normal',
+                           'low',
+                           name='taskflow_priorities'),
+                      nullable=False)
+    unique = Column(String)
     created_at = Column(DateTime,
                         nullable=False,
                         server_default=func.now())
@@ -192,10 +247,12 @@ class TaskInstance(SchedulableInstance, BaseModel):
 
     task = Column(String, nullable=False)
     workflow_instance = Column(BigInteger, ForeignKey('workflow_instances.id'))
-    push = Column(Boolean)  ## TODO: default False ? nullable=False ?
+    push = Column(Boolean, nullable=False)
+    locked_at = Column(DateTime) ## TODO: should workflow instaces have locked_at as well ?
+    worker_id = Column(String)
     params = Column(JSONB)
     push_data = Column(JSONB)
-    attempts = Column(Integer) ## TODO: default 0 ? nullable=False ?
+    attempts = Column(Integer, nullable=False, default=0)
 
     def __repr__(self):
         return '<TaskInstance task: {} workflow_instance: {} status: {}>'.format(
