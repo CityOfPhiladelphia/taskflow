@@ -186,6 +186,13 @@ class Scheduler(object):
             #     print('Exception scheduling Workflow "{}"'.format(item.name))
             #     print(e)
 
+    def fail_timedout_task_instances(self):
+        self.session.execute(
+            "UPDATE task_instances SET status = 'failed', ended_at = :now " +
+            "WHERE status in ('running','retrying') AND " + 
+            "(:now > (locked_at + INTERVAL '1 second' * timeout)) AND " +
+            "attempts >= max_attempts", {'now': self.now()})
+
     def run(self):
         ## TODO: allow for dry_run
 
@@ -201,3 +208,5 @@ class Scheduler(object):
         self.schedule_recurring(Task)
 
         ## TODO: push tasks
+
+        self.fail_timedout_task_instances()

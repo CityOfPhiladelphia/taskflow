@@ -163,11 +163,6 @@ class Task(Schedulable, BaseModel):
             max_attempts=max_attempts or self.retries,
             timeout=timeout or self.timeout)
 
-## TODO: fix retries
- # OR
- #           (status = 'retrying' AND
- #             attempts < max_attempts))
-
 pull_sql = """
 WITH nextTasks as (
     SELECT id, status, started_at
@@ -175,8 +170,8 @@ WITH nextTasks as (
     WHERE{}
        run_at <= :now
        AND (status = 'queued' OR
-             (status = 'running' AND
-               (:now > (locked_at + INTERVAL '1 second' * timeout))))
+             ((status = 'running' OR (status = 'retrying' AND attempts < max_attempts)) AND
+              (:now > (locked_at + INTERVAL '1 second' * timeout))))
     ORDER BY
         CASE WHEN priority = 'critical'
              THEN 1
@@ -192,7 +187,11 @@ WITH nextTasks as (
     FOR UPDATE SKIP LOCKED
 )
 UPDATE task_instances SET
-    status = 'running',
+    status = 
+        (CASE WHEN nextTasks.status = 'running'
+              THEN 'retrying'
+              ELSE 'running'
+         END)::taskflow_statuses,
     worker_id = :worker_id,
     locked_at = :now,
     started_at = COALESCE(nextTasks.started_at, :now),
