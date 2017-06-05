@@ -66,7 +66,7 @@ def test_start_workflow(dbsession, workflows):
     task_instances = dbsession.query(TaskInstance).all()
     assert len(task_instances) == 2
     for instance in task_instances:
-        assert instance.task in ['task1','task2']
+        assert instance.task_name in ['task1','task2']
         assert instance.status == 'queued'
 
 def test_workflow_running_no_change(dbsession, workflows):
@@ -84,7 +84,7 @@ def test_workflow_running_no_change(dbsession, workflows):
     dbsession.add(workflow_instance)
     dbsession.commit()
     task_instance1 = TaskInstance(
-        task='task1',
+        task_name='task1',
         scheduled=True,
         workflow_instance=workflow_instance.id,
         status='running',
@@ -93,7 +93,7 @@ def test_workflow_running_no_change(dbsession, workflows):
         priority='normal',
         push=False)
     task_instance2 = TaskInstance(
-        task='task2',
+        task_name='task2',
         scheduled=True,
         workflow_instance=workflow_instance.id,
         status='running',
@@ -111,7 +111,7 @@ def test_workflow_running_no_change(dbsession, workflows):
     task_instances = dbsession.query(TaskInstance).all()
     assert len(task_instances) == 2
     for instance in task_instances:
-        assert instance.task in ['task1','task2']
+        assert instance.task_name in ['task1','task2']
         assert instance.status == 'running'
 
 def test_workflow_next_step(dbsession, workflows):
@@ -127,7 +127,7 @@ def test_workflow_next_step(dbsession, workflows):
     dbsession.add(workflow_instance)
     dbsession.commit()
     task_instance1 = TaskInstance(
-        task='task1',
+        task_name='task1',
         scheduled=True,
         workflow_instance=workflow_instance.id,
         status='success',
@@ -136,7 +136,7 @@ def test_workflow_next_step(dbsession, workflows):
         priority='normal',
         push=False)
     task_instance2 = TaskInstance(
-        task='task2',
+        task_name='task2',
         scheduled=True,
         workflow_instance=workflow_instance.id,
         status='success',
@@ -154,10 +154,10 @@ def test_workflow_next_step(dbsession, workflows):
     task_instances = dbsession.query(TaskInstance).all()
     assert len(task_instances) == 3
     for instance in task_instances:
-        assert instance.task in ['task1','task2','task3']
-        if instance.task in ['task1','task2']:
+        assert instance.task_name in ['task1','task2','task3']
+        if instance.task_name in ['task1','task2']:
             assert instance.status == 'success'
-        elif instance.task == 'task3':
+        elif instance.task_name == 'task3':
             assert instance.status == 'queued'
 
 def test_workflow_success(dbsession, workflows):
@@ -173,7 +173,7 @@ def test_workflow_success(dbsession, workflows):
     dbsession.add(workflow_instance)
     dbsession.commit()
     task_instance1 = TaskInstance(
-        task='task1',
+        task_name='task1',
         scheduled=True,
         workflow_instance=workflow_instance.id,
         status='success',
@@ -182,7 +182,7 @@ def test_workflow_success(dbsession, workflows):
         priority='normal',
         push=False)
     task_instance2 = TaskInstance(
-        task='task2',
+        task_name='task2',
         scheduled=True,
         workflow_instance=workflow_instance.id,
         status='success',
@@ -191,7 +191,7 @@ def test_workflow_success(dbsession, workflows):
         priority='normal',
         push=False)
     task_instance3 = TaskInstance(
-        task='task3',
+        task_name='task3',
         scheduled=True,
         workflow_instance=workflow_instance.id,
         status='success',
@@ -200,7 +200,7 @@ def test_workflow_success(dbsession, workflows):
         priority='normal',
         push=False)
     task_instance4 = TaskInstance(
-        task='task4',
+        task_name='task4',
         scheduled=True,
         workflow_instance=workflow_instance.id,
         status='success',
@@ -223,7 +223,7 @@ def test_workflow_success(dbsession, workflows):
     task_instances = dbsession.query(TaskInstance).all()
     assert len(task_instances) == 4
     for instance in task_instances:
-        assert instance.task in ['task1','task2','task3','task4']
+        assert instance.task_name in ['task1','task2','task3','task4']
         assert instance.status == 'success'
 
 def test_workflow_fail(dbsession, workflows):
@@ -239,7 +239,7 @@ def test_workflow_fail(dbsession, workflows):
     dbsession.add(workflow_instance)
     dbsession.commit()
     task_instance1 = TaskInstance(
-        task='task1',
+        task_name='task1',
         scheduled=True,
         workflow_instance=workflow_instance.id,
         status='success',
@@ -248,7 +248,7 @@ def test_workflow_fail(dbsession, workflows):
         priority='normal',
         push=False)
     task_instance2 = TaskInstance(
-        task='task2',
+        task_name='task2',
         scheduled=True,
         workflow_instance=workflow_instance.id,
         status='success',
@@ -257,7 +257,7 @@ def test_workflow_fail(dbsession, workflows):
         priority='normal',
         push=False)
     task_instance3 = TaskInstance(
-        task='task3',
+        task_name='task3',
         scheduled=True,
         workflow_instance=workflow_instance.id,
         status='failed',
@@ -279,8 +279,8 @@ def test_workflow_fail(dbsession, workflows):
     task_instances = dbsession.query(TaskInstance).all()
     assert len(task_instances) == 3
     for instance in task_instances:
-        assert instance.task in ['task1','task2','task3']
-        if instance.task in ['task1','task2']:
+        assert instance.task_name in ['task1','task2','task3']
+        if instance.task_name in ['task1','task2']:
             assert instance.status == 'success'
-        elif instance.task == 'task3':
+        elif instance.task_name == 'task3':
             assert instance.status == 'failed'

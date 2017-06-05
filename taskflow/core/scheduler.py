@@ -25,6 +25,8 @@ class Scheduler(object):
         if run_at == None:
             run_at = self.now()
 
+        ## TODO: use TaskInstance.unique?
+
         task = workflow.get_task(task_name)
 
         task_instance = task.get_new_instance(
@@ -43,7 +45,7 @@ class Scheduler(object):
                     .filter(TaskInstance.workflow_instance == workflow_instance.id).all()
         workflow_task_instances = dict()
         for instance in results:
-            workflow_task_instances[instance.task] = instance
+            workflow_task_instances[instance.task_name] = instance
 
         ## dep_graph looks like [{'task2', 'task1'}, {'task3'}, {'task4'}]
         ## a list of sets where each set is a parallel step
@@ -70,7 +72,8 @@ class Scheduler(object):
             for task_name in tasks_to_queue:
                 self.queue_workflow_task(workflow, task_name, workflow_instance)
 
-            ## TODO: assert if len(tasks_to_queue) > 0 then total_complete < total_in_step ?
+            if len(tasks_to_queue) > 0 and total_complete == total_in_step:
+                raise Exception('Attempting to queue tasks for a completed workflow step')
 
             if total_complete < total_in_step:
                 break
@@ -124,7 +127,7 @@ class Scheduler(object):
                 if definition_class == Workflow:
                     filters = (instance_class.workflow == item.name,)
                 else:
-                    filters = (instance_class.task == item.name,)
+                    filters = (instance_class.task_name == item.name,)
                 filters += (instance_class.scheduled == True,)
 
                 ## Get the most recent instance of the recurring item

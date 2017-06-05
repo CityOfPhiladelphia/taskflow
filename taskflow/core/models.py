@@ -149,7 +149,7 @@ class Task(Schedulable, BaseModel):
                          run_at=None,
                          priority=None):
         return TaskInstance(
-            task=self.name,
+            task_name=self.name,
             workflow_instance=workflow_instance,
             scheduled=scheduled,
             push=self.push_destination != None,
@@ -161,6 +161,7 @@ class Taskflow(object):
     def __init__(self):
         self._workflows = dict()
         self._tasks = dict()
+        self._push_workers = []
 
     def add_workflow(self, workflow):
         self._workflows[workflow.name] = workflow
@@ -245,7 +246,9 @@ class WorkflowInstance(SchedulableInstance, BaseModel):
 class TaskInstance(SchedulableInstance, BaseModel):
     __tablename__ = 'task_instances'
 
-    task = Column(String, nullable=False)
+    ## TODO: add last_heartbeat ?
+
+    task_name = Column(String, nullable=False)
     workflow_instance = Column(BigInteger, ForeignKey('workflow_instances.id'))
     push = Column(Boolean, nullable=False)
     locked_at = Column(DateTime) ## TODO: should workflow instaces have locked_at as well ?
@@ -258,7 +261,7 @@ class TaskInstance(SchedulableInstance, BaseModel):
         return '<TaskInstance task: {} workflow_instance: {} status: {}>'.format(
                     self.task,
                     self.workflow_instance,
-                    self.status) 
+                    self.status)
 
 class TaskflowEvent(BaseModel):
     __tablename__ = 'taskflow_events'

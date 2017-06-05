@@ -34,7 +34,25 @@ def test_schedule_recurring_task(dbsession, tasks):
         assert task_instance.status == 'queued'
         assert task_instance.scheduled == True
 
-        if task_instance.task == 'task2':
+        if task_instance.task_name == 'task2':
             assert task_instance.run_at == datetime(2017, 6, 4, 6)
         else:
             assert task_instance.run_at == datetime(2017, 6, 4, 2)
+
+## TODO: queue a task with unique string
+
+## TODO: test unique conflict
+
+## TODO: test pulling a task
+
+## TODO: test pulling a task priority
+
+## TODO: test touching / relocking?
+
+## TODO: test retry and succeed
+
+## TODO: test retry and fail
+
+## TODO: test succeeding a task
+
+## TODO: test failing a task
