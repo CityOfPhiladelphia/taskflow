@@ -30,7 +30,7 @@ def workflows(dbsession):
     return [workflow1, workflow2]
 
 def test_schedule_recurring_workflow(dbsession, workflows):
-    taskflow = Taskflow()
+    taskflow = Taskflow(dbsession)
     taskflow.add_workflows(workflows)
     scheduler = Scheduler(dbsession, taskflow, now_override=datetime(2017, 6, 3, 6))
     scheduler.run()
@@ -45,11 +45,11 @@ def test_schedule_recurring_workflow(dbsession, workflows):
     assert len(task_instances) == 0
 
 def test_start_workflow(dbsession, workflows):
-    taskflow = Taskflow()
+    taskflow = Taskflow(dbsession)
     taskflow.add_workflows(workflows)
 
     workflow_instance = WorkflowInstance(
-        workflow='workflow1',
+        workflow_name='workflow1',
         scheduled=True,
         run_at=datetime(2017, 6, 3, 6),
         status='queued',
@@ -70,13 +70,13 @@ def test_start_workflow(dbsession, workflows):
         assert instance.status == 'queued'
 
 def test_workflow_running_no_change(dbsession, workflows):
-    taskflow = Taskflow()
+    taskflow = Taskflow(dbsession)
     taskflow.add_workflows(workflows)
 
     workflow1 = workflows[0]
 
     workflow_instance = WorkflowInstance(
-        workflow='workflow1',
+        workflow_name='workflow1',
         scheduled=True,
         run_at=datetime(2017, 6, 3, 6),
         status='running',
@@ -91,7 +91,8 @@ def test_workflow_running_no_change(dbsession, workflows):
         run_at=datetime(2017, 6, 3, 6, 0, 34),
         attempts=1,
         priority='normal',
-        push=False)
+        push=False,
+        timeout=300)
     task_instance2 = TaskInstance(
         task_name='task2',
         scheduled=True,
@@ -100,7 +101,8 @@ def test_workflow_running_no_change(dbsession, workflows):
         run_at=datetime(2017, 6, 3, 6, 0, 34),
         attempts=1,
         priority='normal',
-        push=False)
+        push=False,
+        timeout=300)
     dbsession.add(task_instance1)
     dbsession.add(task_instance2)
     dbsession.commit()
@@ -115,11 +117,11 @@ def test_workflow_running_no_change(dbsession, workflows):
         assert instance.status == 'running'
 
 def test_workflow_next_step(dbsession, workflows):
-    taskflow = Taskflow()
+    taskflow = Taskflow(dbsession)
     taskflow.add_workflows(workflows)
 
     workflow_instance = WorkflowInstance(
-        workflow='workflow1',
+        workflow_name='workflow1',
         scheduled=True,
         run_at=datetime(2017, 6, 3, 6),
         status='running',
@@ -134,7 +136,8 @@ def test_workflow_next_step(dbsession, workflows):
         run_at=datetime(2017, 6, 3, 6, 0, 34),
         attempts=1,
         priority='normal',
-        push=False)
+        push=False,
+        timeout=300)
     task_instance2 = TaskInstance(
         task_name='task2',
         scheduled=True,
@@ -143,7 +146,8 @@ def test_workflow_next_step(dbsession, workflows):
         run_at=datetime(2017, 6, 3, 6, 0, 34),
         attempts=1,
         priority='normal',
-        push=False)
+        push=False,
+        timeout=300)
     dbsession.add(task_instance1)
     dbsession.add(task_instance2)
     dbsession.commit()
@@ -161,11 +165,11 @@ def test_workflow_next_step(dbsession, workflows):
             assert instance.status == 'queued'
 
 def test_workflow_success(dbsession, workflows):
-    taskflow = Taskflow()
+    taskflow = Taskflow(dbsession)
     taskflow.add_workflows(workflows)
 
     workflow_instance = WorkflowInstance(
-        workflow='workflow1',
+        workflow_name='workflow1',
         scheduled=True,
         run_at=datetime(2017, 6, 3, 6),
         status='running',
@@ -180,7 +184,8 @@ def test_workflow_success(dbsession, workflows):
         run_at=datetime(2017, 6, 3, 6, 0, 34),
         attempts=1,
         priority='normal',
-        push=False)
+        push=False,
+        timeout=300)
     task_instance2 = TaskInstance(
         task_name='task2',
         scheduled=True,
@@ -189,7 +194,8 @@ def test_workflow_success(dbsession, workflows):
         run_at=datetime(2017, 6, 3, 6, 0, 34),
         attempts=1,
         priority='normal',
-        push=False)
+        push=False,
+        timeout=300)
     task_instance3 = TaskInstance(
         task_name='task3',
         scheduled=True,
@@ -198,7 +204,8 @@ def test_workflow_success(dbsession, workflows):
         run_at=datetime(2017, 6, 3, 6, 0, 34),
         attempts=1,
         priority='normal',
-        push=False)
+        push=False,
+        timeout=300)
     task_instance4 = TaskInstance(
         task_name='task4',
         scheduled=True,
@@ -207,7 +214,8 @@ def test_workflow_success(dbsession, workflows):
         run_at=datetime(2017, 6, 3, 6, 0, 34),
         attempts=1,
         priority='normal',
-        push=False)
+        push=False,
+        timeout=300)
     dbsession.add(task_instance1)
     dbsession.add(task_instance2)
     dbsession.add(task_instance3)
@@ -227,11 +235,11 @@ def test_workflow_success(dbsession, workflows):
         assert instance.status == 'success'
 
 def test_workflow_fail(dbsession, workflows):
-    taskflow = Taskflow()
+    taskflow = Taskflow(dbsession)
     taskflow.add_workflows(workflows)
 
     workflow_instance = WorkflowInstance(
-        workflow='workflow1',
+        workflow_name='workflow1',
         scheduled=True,
         run_at=datetime(2017, 6, 3, 6),
         status='running',
@@ -246,7 +254,8 @@ def test_workflow_fail(dbsession, workflows):
         run_at=datetime(2017, 6, 3, 6, 0, 34),
         attempts=1,
         priority='normal',
-        push=False)
+        push=False,
+        timeout=300)
     task_instance2 = TaskInstance(
         task_name='task2',
         scheduled=True,
@@ -255,7 +264,8 @@ def test_workflow_fail(dbsession, workflows):
         run_at=datetime(2017, 6, 3, 6, 0, 34),
         attempts=1,
         priority='normal',
-        push=False)
+        push=False,
+        timeout=300)
     task_instance3 = TaskInstance(
         task_name='task3',
         scheduled=True,
@@ -264,7 +274,8 @@ def test_workflow_fail(dbsession, workflows):
         run_at=datetime(2017, 6, 3, 6, 0, 34),
         attempts=1,
         priority='normal',
-        push=False)
+        push=False,
+        timeout=300)
     dbsession.add(task_instance1)
     dbsession.add(task_instance2)
     dbsession.add(task_instance3)

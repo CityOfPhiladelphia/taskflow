@@ -20,10 +20,21 @@ def tasks(dbsession):
 
     return [task1, task2, task3, task4]
 
+## TODO: test run_at order
+
+## TODO: test touching / relocking?
+
+## TODO: test retry and succeed
+
+## TODO: test retry and fail
+
+## TODO: queue a task with unique string
+
+## TODO: test unique conflict
+
 def test_schedule_recurring_task(dbsession, tasks):
-    taskflow = Taskflow()
+    taskflow = Taskflow(dbsession)
     taskflow.add_tasks(tasks)
-    print(len(taskflow._workflows))
     scheduler = Scheduler(dbsession, taskflow, now_override=datetime(2017, 6, 3, 6))
     scheduler.run()
 
@@ -39,20 +50,117 @@ def test_schedule_recurring_task(dbsession, tasks):
         else:
             assert task_instance.run_at == datetime(2017, 6, 4, 2)
 
-## TODO: queue a task with unique string
+def test_queue_pull_task(dbsession, engine):
+    task1 = Task(name='task1', active=True)
+    dbsession.add(task1)
+    taskflow = Taskflow(dbsession)
+    taskflow.add_task(task1)
 
-## TODO: test unique conflict
+    task_instance = task1.get_new_instance(run_at=datetime(2017, 6, 4, 6))
+    dbsession.add(task_instance)
+    dbsession.commit()
 
-## TODO: test pulling a task
+    task_instance_id = task_instance.id
+    dbsession.expunge_all()
 
-## TODO: test pulling a task priority
+    pulled_task_instances = taskflow.pull('test', now=datetime(2017, 6, 4, 6, 0, 12))
+    pulled_task_instance = pulled_task_instances[0]
 
-## TODO: test touching / relocking?
+    assert pulled_task_instance.id == task_instance_id
+    assert pulled_task_instance.status == 'running'
+    assert pulled_task_instance.locked_at == datetime(2017, 6, 4, 6, 0, 12)
+    assert pulled_task_instance.started_at == datetime(2017, 6, 4, 6, 0, 12)
+    assert pulled_task_instance.worker_id == 'test'
 
-## TODO: test retry and succeed
+def test_queue_pull_task(dbsession, engine):
+    task1 = Task(name='task1', active=True)
+    dbsession.add(task1)
+    taskflow = Taskflow(dbsession)
+    taskflow.add_task(task1)
 
-## TODO: test retry and fail
+    task_instance1 = task1.get_new_instance(run_at=datetime(2017, 6, 4, 6))
+    task_instance2 = task1.get_new_instance(run_at=datetime(2017, 6, 4, 6), priority='high')
+    dbsession.add(task_instance1)
+    dbsession.add(task_instance2)
+    dbsession.commit()
 
-## TODO: test succeeding a task
+    normal_task_instance_id = task_instance1.id
+    high_task_instance_id = task_instance2.id
 
-## TODO: test failing a task
+    dbsession.expunge_all()
+
+    pulled_task_instances = taskflow.pull('test', max_tasks=1, now=datetime(2017, 6, 4, 6, 0, 12))
+    pulled_task_instance = pulled_task_instances[0]
+
+    assert pulled_task_instance.id == high_task_instance_id
+    assert pulled_task_instance.status == 'running'
+    assert pulled_task_instance.locked_at == datetime(2017, 6, 4, 6, 0, 12)
+    assert pulled_task_instance.started_at == datetime(2017, 6, 4, 6, 0, 12)
+    assert pulled_task_instance.worker_id == 'test'
+    assert pulled_task_instance.priority == 'high'
+
+    pulled_task_instances = taskflow.pull('test', max_tasks=1, now=datetime(2017, 6, 4, 6, 0, 12))
+    pulled_task_instance = pulled_task_instances[0]
+
+    assert pulled_task_instance.id == normal_task_instance_id
+    assert pulled_task_instance.status == 'running'
+    assert pulled_task_instance.locked_at == datetime(2017, 6, 4, 6, 0, 12)
+    assert pulled_task_instance.started_at == datetime(2017, 6, 4, 6, 0, 12)
+    assert pulled_task_instance.worker_id == 'test'
+    assert pulled_task_instance.priority == 'normal'
+
+def test_succeed_task(dbsession, engine):
+    task1 = Task(name='task1', active=True)
+    dbsession.add(task1)
+    taskflow = Taskflow(dbsession)
+    taskflow.add_task(task1)
+
+    task_instance = task1.get_new_instance(run_at=datetime(2017, 6, 4, 6))
+    dbsession.add(task_instance)
+    dbsession.commit()
+
+    task_instance_id = task_instance.id
+    dbsession.expunge_all()
+
+    pulled_task_instances = taskflow.pull('test', now=datetime(2017, 6, 4, 6, 0, 12))
+    pulled_task_instance = pulled_task_instances[0]
+
+    assert pulled_task_instance.id == task_instance_id
+    assert pulled_task_instance.status == 'running'
+    assert pulled_task_instance.locked_at == datetime(2017, 6, 4, 6, 0, 12)
+    assert pulled_task_instance.started_at == datetime(2017, 6, 4, 6, 0, 12)
+    assert pulled_task_instance.worker_id == 'test'
+
+    pulled_task_instance.succeed(dbsession, now=datetime(2017, 6, 4, 6, 0, 15))
+    dbsession.refresh(pulled_task_instance)
+
+    assert pulled_task_instance.status == 'success'
+    assert pulled_task_instance.ended_at == datetime(2017, 6, 4, 6, 0, 15)
+
+def test_succeed_task(dbsession, engine):
+    task1 = Task(name='task1', active=True)
+    dbsession.add(task1)
+    taskflow = Taskflow(dbsession)
+    taskflow.add_task(task1)
+
+    task_instance = task1.get_new_instance(run_at=datetime(2017, 6, 4, 6))
+    dbsession.add(task_instance)
+    dbsession.commit()
+
+    task_instance_id = task_instance.id
+    dbsession.expunge_all()
+
+    pulled_task_instances = taskflow.pull('test', now=datetime(2017, 6, 4, 6, 0, 12))
+    pulled_task_instance = pulled_task_instances[0]
+
+    assert pulled_task_instance.id == task_instance_id
+    assert pulled_task_instance.status == 'running'
+    assert pulled_task_instance.locked_at == datetime(2017, 6, 4, 6, 0, 12)
+    assert pulled_task_instance.started_at == datetime(2017, 6, 4, 6, 0, 12)
+    assert pulled_task_instance.worker_id == 'test'
+
+    pulled_task_instance.fail(dbsession, now=datetime(2017, 6, 4, 6, 0, 15))
+    dbsession.refresh(pulled_task_instance)
+
+    assert pulled_task_instance.status == 'failed'
+    assert pulled_task_instance.ended_at == datetime(2017, 6, 4, 6, 0, 15)

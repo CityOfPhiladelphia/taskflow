@@ -1,5 +1,4 @@
 from datetime import datetime
-from functools import reduce
 
 from toposort import toposort
 from sqlalchemy import or_, and_
@@ -12,6 +11,12 @@ class Scheduler(object):
         self.taskflow = taskflow
 
         self.now_override = now_override
+
+    def now(self):
+        """Allows for dry runs and tests to use a specific datetime as now"""
+        if self.now_override:
+            return self.now_override
+        return datetime.utcnow()
 
     def queue_task(self, task, run_at):
         if run_at == None:
@@ -37,7 +42,7 @@ class Scheduler(object):
         self.session.add(task_instance)
 
     def queue_workflow_tasks(self, workflow_instance):
-        workflow = self.taskflow.get_workflow(workflow_instance.workflow)
+        workflow = self.taskflow.get_workflow(workflow_instance.workflow_name)
         dep_graph = workflow.get_dependencies_graph()
         dep_graph = list(toposort(dep_graph))
 
@@ -97,12 +102,6 @@ class Scheduler(object):
             self.queue_workflow_tasks(workflow_instance)
         self.session.commit()
 
-    def now(self):
-        """Allows for dry runs and tests to use a specific datetime as now"""
-        if self.now_override:
-            return self.now_override
-        return datetime.utcnow()
-
     def schedule_recurring(self, definition_class):
         """Schedules recurring Workflows or Tasks
            definition_class - Workflow or Task"""
@@ -125,7 +124,7 @@ class Scheduler(object):
         for item in recurring_items:
             # try: !!! add this back after dev
                 if definition_class == Workflow:
-                    filters = (instance_class.workflow == item.name,)
+                    filters = (instance_class.workflow_name == item.name,)
                 else:
                     filters = (instance_class.task_name == item.name,)
                 filters += (instance_class.scheduled == True,)
