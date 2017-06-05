@@ -145,12 +145,12 @@ class Task(Schedulable, BaseModel):
     def get_new_instance(self,
                          scheduled=False,
                          status='queued',
-                         workflow_instance=None,
+                         workflow_instance_id=None,
                          run_at=None,
                          priority=None):
         return TaskInstance(
             task_name=self.name,
-            workflow_instance=workflow_instance,
+            workflow_instance_id=workflow_instance_id,
             scheduled=scheduled,
             push=self.push_destination != None,
             status=status,
@@ -161,7 +161,7 @@ class Taskflow(object):
     def __init__(self):
         self._workflows = dict()
         self._tasks = dict()
-        self._push_workers = []
+        self._push_workers = dict()
 
     def add_workflow(self, workflow):
         self._workflows[workflow.name] = workflow
@@ -194,6 +194,9 @@ class Taskflow(object):
         for task in self._tasks.values():
             task.refresh(session)
         return self._tasks.values()
+
+    def get_push_worker(self, push_type):
+        return self._push_workers[push_type]
 
     def persist(self, session): ## TODO: make upsert?
         for workflow in self._workflows.values():
@@ -249,7 +252,7 @@ class TaskInstance(SchedulableInstance, BaseModel):
     ## TODO: add last_heartbeat ?
 
     task_name = Column(String, nullable=False)
-    workflow_instance = Column(BigInteger, ForeignKey('workflow_instances.id'))
+    workflow_instance_id = Column(BigInteger, ForeignKey('workflow_instances.id'))
     push = Column(Boolean, nullable=False)
     locked_at = Column(DateTime) ## TODO: should workflow instaces have locked_at as well ?
     worker_id = Column(String)
@@ -260,7 +263,7 @@ class TaskInstance(SchedulableInstance, BaseModel):
     def __repr__(self):
         return '<TaskInstance task: {} workflow_instance: {} status: {}>'.format(
                     self.task,
-                    self.workflow_instance,
+                    self.workflow_instance_id,
                     self.status)
 
 class TaskflowEvent(BaseModel):

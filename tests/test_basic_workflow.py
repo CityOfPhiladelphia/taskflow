@@ -86,7 +86,7 @@ def test_workflow_running_no_change(dbsession, workflows):
     task_instance1 = TaskInstance(
         task_name='task1',
         scheduled=True,
-        workflow_instance=workflow_instance.id,
+        workflow_instance_id=workflow_instance.id,
         status='running',
         run_at=datetime(2017, 6, 3, 6, 0, 34),
         attempts=1,
@@ -95,7 +95,7 @@ def test_workflow_running_no_change(dbsession, workflows):
     task_instance2 = TaskInstance(
         task_name='task2',
         scheduled=True,
-        workflow_instance=workflow_instance.id,
+        workflow_instance_id=workflow_instance.id,
         status='running',
         run_at=datetime(2017, 6, 3, 6, 0, 34),
         attempts=1,
@@ -129,7 +129,7 @@ def test_workflow_next_step(dbsession, workflows):
     task_instance1 = TaskInstance(
         task_name='task1',
         scheduled=True,
-        workflow_instance=workflow_instance.id,
+        workflow_instance_id=workflow_instance.id,
         status='success',
         run_at=datetime(2017, 6, 3, 6, 0, 34),
         attempts=1,
@@ -138,7 +138,7 @@ def test_workflow_next_step(dbsession, workflows):
     task_instance2 = TaskInstance(
         task_name='task2',
         scheduled=True,
-        workflow_instance=workflow_instance.id,
+        workflow_instance_id=workflow_instance.id,
         status='success',
         run_at=datetime(2017, 6, 3, 6, 0, 34),
         attempts=1,
@@ -175,7 +175,7 @@ def test_workflow_success(dbsession, workflows):
     task_instance1 = TaskInstance(
         task_name='task1',
         scheduled=True,
-        workflow_instance=workflow_instance.id,
+        workflow_instance_id=workflow_instance.id,
         status='success',
         run_at=datetime(2017, 6, 3, 6, 0, 34),
         attempts=1,
@@ -184,7 +184,7 @@ def test_workflow_success(dbsession, workflows):
     task_instance2 = TaskInstance(
         task_name='task2',
         scheduled=True,
-        workflow_instance=workflow_instance.id,
+        workflow_instance_id=workflow_instance.id,
         status='success',
         run_at=datetime(2017, 6, 3, 6, 0, 34),
         attempts=1,
@@ -193,7 +193,7 @@ def test_workflow_success(dbsession, workflows):
     task_instance3 = TaskInstance(
         task_name='task3',
         scheduled=True,
-        workflow_instance=workflow_instance.id,
+        workflow_instance_id=workflow_instance.id,
         status='success',
         run_at=datetime(2017, 6, 3, 6, 0, 34),
         attempts=1,
@@ -202,7 +202,7 @@ def test_workflow_success(dbsession, workflows):
     task_instance4 = TaskInstance(
         task_name='task4',
         scheduled=True,
-        workflow_instance=workflow_instance.id,
+        workflow_instance_id=workflow_instance.id,
         status='success',
         run_at=datetime(2017, 6, 3, 6, 0, 34),
         attempts=1,
@@ -241,7 +241,7 @@ def test_workflow_fail(dbsession, workflows):
     task_instance1 = TaskInstance(
         task_name='task1',
         scheduled=True,
-        workflow_instance=workflow_instance.id,
+        workflow_instance_id=workflow_instance.id,
         status='success',
         run_at=datetime(2017, 6, 3, 6, 0, 34),
         attempts=1,
@@ -250,7 +250,7 @@ def test_workflow_fail(dbsession, workflows):
     task_instance2 = TaskInstance(
         task_name='task2',
         scheduled=True,
-        workflow_instance=workflow_instance.id,
+        workflow_instance_id=workflow_instance.id,
         status='success',
         run_at=datetime(2017, 6, 3, 6, 0, 34),
         attempts=1,
@@ -259,7 +259,7 @@ def test_workflow_fail(dbsession, workflows):
     task_instance3 = TaskInstance(
         task_name='task3',
         scheduled=True,
-        workflow_instance=workflow_instance.id,
+        workflow_instance_id=workflow_instance.id,
         status='failed',
         run_at=datetime(2017, 6, 3, 6, 0, 34),
         attempts=1,

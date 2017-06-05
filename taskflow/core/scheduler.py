@@ -32,7 +32,7 @@ class Scheduler(object):
         task_instance = task.get_new_instance(
             scheduled=True,
             run_at=run_at,
-            workflow_instance=workflow_instance.id,
+            workflow_instance_id=workflow_instance.id,
             priority=workflow_instance.priority or workflow.default_priority)
         self.session.add(task_instance)
 
@@ -42,7 +42,7 @@ class Scheduler(object):
         dep_graph = list(toposort(dep_graph))
 
         results = self.session.query(TaskInstance)\
-                    .filter(TaskInstance.workflow_instance == workflow_instance.id).all()
+                    .filter(TaskInstance.workflow_instance_id == workflow_instance.id).all()
         workflow_task_instances = dict()
         for instance in results:
             workflow_task_instances[instance.task_name] = instance
