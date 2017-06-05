@@ -55,8 +55,7 @@ class Schedulable(object):
 
     def refresh(self, session):
         recurring_class = self.__class__
-        persisted = session.query(recurring_class).filter(recurring_class.name == self.name).first()
-        self.active = persisted.active
+        return session.query(recurring_class).filter(recurring_class.name == self.name).one()
 
     def next_run(self, base_time=None):
         if not base_time:
@@ -163,6 +162,8 @@ class Task(Schedulable, BaseModel):
             max_attempts=max_attempts or self.retries,
             timeout=timeout or self.timeout)
 
+## TODO: add 'pushed' below for timeouts?
+
 pull_sql = """
 WITH nextTasks as (
     SELECT id, status, started_at
@@ -221,9 +222,9 @@ class Taskflow(object):
     def get_workflow(self, workflow_name):
         return self._workflows[workflow_name]
 
-    def get_fresh_workflows(self, session):
-        for workflow in self._workflows.values():
-            workflow.refresh(session)
+    def get_fresh_workflows(self):
+        for workflow_name in self._workflows:
+            self._workflows[workflow_name] = self._workflows[workflow_name].refresh(self.session)
         return self._workflows.values()
 
     def add_task(self, task):
@@ -238,10 +239,13 @@ class Taskflow(object):
     def get_task(self, task_name):
         return self._tasks[task_name]
 
-    def get_fresh_tasks(self, session):
-        for task in self._tasks.values():
-            task.refresh(session)
+    def get_fresh_tasks(self):
+        for task_name in self._tasks:
+            self._tasks[task_name] = self._tasks[task_name].refresh(self.session)
         return self._tasks.values()
+
+    def add_push_worker(self, push_worker):
+        self._push_workers[push_worker.push_type] = push_worker
 
     def get_push_worker(self, push_type):
         return self._push_workers[push_type]

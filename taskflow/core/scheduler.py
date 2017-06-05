@@ -108,10 +108,10 @@ class Scheduler(object):
 
         if definition_class == Workflow:
             instance_class = WorkflowInstance
-            fresh_recurring_items = self.taskflow.get_fresh_workflows(self.session)
+            fresh_recurring_items = self.taskflow.get_fresh_workflows()
         elif definition_class == Task:
             instance_class = TaskInstance
-            fresh_recurring_items = self.taskflow.get_fresh_tasks(self.session)
+            fresh_recurring_items = self.taskflow.get_fresh_tasks()
         else:
             raise Exception('definition_class must be Workflow or Task')
 
@@ -206,7 +206,5 @@ class Scheduler(object):
         ##### Task scheduling - tasks that do not belong to a workflow
 
         self.schedule_recurring(Task)
-
-        ## TODO: push tasks
 
         self.fail_timedout_task_instances()
