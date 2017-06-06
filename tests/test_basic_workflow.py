@@ -29,6 +29,8 @@ def workflows(dbsession):
     dbsession.commit()
     return [workflow1, workflow2]
 
+## TODO: test dry run
+
 def test_schedule_recurring_workflow(dbsession, workflows):
     taskflow = Taskflow()
     taskflow.add_workflows(workflows)

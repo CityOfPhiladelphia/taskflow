@@ -6,9 +6,10 @@ from sqlalchemy import or_, and_
 from .models import Workflow, WorkflowInstance, Task, TaskInstance
 
 class Scheduler(object):
-    def __init__(self, taskflow, now_override=None):
+    def __init__(self, taskflow, dry_run=False, now_override=None):
         self.taskflow = taskflow
 
+        self.dry_run = dry_run
         self.now_override = now_override
 
     def now(self):
@@ -23,7 +24,9 @@ class Scheduler(object):
 
         task_instance = task.get_new_instance(scheduled=True,
                                               run_at=run_at)
-        session.add(task_instance)
+
+        if not self.dry_run:
+            session.add(task_instance)
 
     def queue_workflow_task(self, session, workflow, task_name, workflow_instance, run_at=None):
         if run_at == None:
@@ -38,7 +41,9 @@ class Scheduler(object):
             run_at=run_at,
             workflow_instance_id=workflow_instance.id,
             priority=workflow_instance.priority or workflow.default_priority)
-        session.add(task_instance)
+        
+        if not self.dry_run:
+            session.add(task_instance)
 
     def queue_workflow_tasks(self, session, workflow_instance):
         workflow = self.taskflow.get_workflow(workflow_instance.workflow_name)
@@ -73,8 +78,9 @@ class Scheduler(object):
             if failed:
                 break
 
-            for task_name in tasks_to_queue:
-                self.queue_workflow_task(session, workflow, task_name, workflow_instance)
+            if not self.dry_run:
+                for task_name in tasks_to_queue:
+                    self.queue_workflow_task(session, workflow, task_name, workflow_instance)
 
             if len(tasks_to_queue) > 0 and total_complete == total_in_step:
                 raise Exception('Attempting to queue tasks for a completed workflow step')
@@ -86,20 +92,27 @@ class Scheduler(object):
 
         if failed:
             workflow_instance.status = 'failed'
-            session.commit()
+            if not self.dry_run:
+                session.commit()
         elif total_complete_steps == len(dep_graph):
             workflow_instance.status = 'success'
-            session.commit()
+            if not self.dry_run:
+                session.commit()
 
     def queue_workflow(self, session, workflow, run_at):
         ## TODO: ensure this is in a transaction with queue_tasks ?
         workflow_instance = workflow.get_new_instance(
             scheduled=True,
             run_at=run_at)
-        session.add(workflow_instance)
+
+        if not self.dry_run:
+            session.add(workflow_instance)
+        
         if workflow_instance.run_at <= self.now():
             self.queue_workflow_tasks(session, workflow_instance)
-        session.commit()
+        
+        if not self.dry_run:
+            session.commit()
 
     def schedule_recurring(self, session, definition_class):
         """Schedules recurring Workflows or Tasks
@@ -174,11 +187,13 @@ class Scheduler(object):
                 if workflow_instance.status == 'queued':
                     workflow_instance.status = 'running'
                     self.queue_workflow_tasks(session, workflow_instance)
-                    session.commit()
+                    if not self.dry_run:
+                        session.commit()
                 elif workflow_instance.status == 'running':
                     ## TODO: timeout queued workflow instances that have gone an interval past their run_at
                     self.queue_workflow_tasks(session, workflow_instance)
-                    session.commit()
+                    if not self.dry_run:
+                        session.commit()
             # except Exception as e:
             #     ## TODO: switch to logger
             #     ## TODO: rollback?
@@ -186,11 +201,12 @@ class Scheduler(object):
             #     print(e)
 
     def fail_timedout_task_instances(self, session):
-        session.execute(
-            "UPDATE task_instances SET status = 'failed', ended_at = :now " +
-            "WHERE status in ('running','retrying') AND " + 
-            "(:now > (locked_at + INTERVAL '1 second' * timeout)) AND " +
-            "attempts >= max_attempts", {'now': self.now()})
+        if not self.dry_run:
+            session.execute(
+                "UPDATE task_instances SET status = 'failed', ended_at = :now " +
+                "WHERE status in ('running','retrying') AND " + 
+                "(:now > (locked_at + INTERVAL '1 second' * timeout)) AND " +
+                "attempts >= max_attempts", {'now': self.now()})
 
     def run(self, session):
         ## TODO: allow for dry_run
