@@ -44,7 +44,7 @@ def test_push(dbsession, monkeypatch):
     taskflow = Taskflow()
     taskflow.add_task(task1)
     taskflow.add_push_worker(AWSBatchPushWorker(taskflow))
-    taskflow.persist(dbsession)
+    taskflow.sync_db(dbsession)
 
     task_instance = task1.get_new_instance(run_at=datetime(2017, 6, 4, 6))
     dbsession.add(task_instance)
@@ -90,7 +90,7 @@ def test_fail(dbsession, monkeypatch):
     taskflow = Taskflow()
     taskflow.add_task(task1)
     taskflow.add_push_worker(AWSBatchPushWorker(taskflow))
-    taskflow.persist(dbsession)
+    taskflow.sync_db(dbsession)
 
     task_instance = task1.get_new_instance(run_at=datetime(2017, 6, 4, 6))
     dbsession.add(task_instance)

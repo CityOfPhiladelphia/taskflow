@@ -209,7 +209,7 @@ class Scheduler(object):
                 "attempts >= max_attempts", {'now': self.now()})
 
     def run(self, session):
-        ## TODO: allow for dry_run
+        ## TODO: what happens when a schedule changes?
 
         ##### Workflow scheduling
 

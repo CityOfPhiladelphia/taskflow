@@ -55,7 +55,9 @@ class Schedulable(object):
 
     def refresh(self, session):
         recurring_class = self.__class__
-        return session.query(recurring_class).filter(recurring_class.name == self.name).one()
+        instance = session.query(recurring_class).filter(recurring_class.name == self.name).one()
+        self.active = instance.active
+        session.merge(self)
 
     def next_run(self, base_time=None):
         if not base_time:
@@ -227,8 +229,8 @@ class Taskflow(object):
 
     def get_fresh_workflows(self, session):
         for workflow_name in self._workflows:
-            self._workflows[workflow_name] = self._workflows[workflow_name].refresh(session)
-        return self._workflows.values()
+            self._workflows[workflow_name].refresh(session)
+        return list(self._workflows.values())
 
     def add_task(self, task):
         if task.workflow != None:
@@ -244,8 +246,8 @@ class Taskflow(object):
 
     def get_fresh_tasks(self, session):
         for task_name in self._tasks:
-            self._tasks[task_name] = self._tasks[task_name].refresh(session)
-        return self._tasks.values()
+            self._tasks[task_name].refresh(session)
+        return list(self._tasks.values())
 
     def add_push_worker(self, push_worker):
         self._push_workers[push_worker.push_type] = push_worker
@@ -253,11 +255,21 @@ class Taskflow(object):
     def get_push_worker(self, push_type):
         return self._push_workers[push_type]
 
-    def persist(self, session): ## TODO: make upsert?
-        for workflow in self._workflows.values():
-            session.add(workflow) ## TODO: workflows tasks as well?
-        for task in self._tasks.values():
-            session.add(task)
+    def sync_db(self, session):
+        for workflow_name in self._workflows:
+            existing = session.query(Workflow).filter(Workflow.name == workflow_name).one_or_none()
+            if existing:
+                self._workflows[workflow_name].active = existing.active
+                session.merge(self._workflows[workflow_name])
+            else:
+                session.add(self._workflows[workflow_name])
+        for task_name in self._tasks:
+            existing = session.query(Task).filter(Task.name == task_name).one_or_none()
+            if existing:
+                self._tasks[task_name].active = existing.active
+                session.merge(self._tasks[task_name])
+            else:
+                session.add(self._tasks[task_name])
         session.commit()
 
     def pull(self, session, worker_id, task_names=None, max_tasks=1, now=None, push=False):
