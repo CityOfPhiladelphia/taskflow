@@ -6,8 +6,7 @@ from sqlalchemy import or_, and_
 from .models import Workflow, WorkflowInstance, Task, TaskInstance
 
 class Scheduler(object):
-    def __init__(self, session, taskflow, now_override=None):
-        self.session = session
+    def __init__(self, taskflow, now_override=None):
         self.taskflow = taskflow
 
         self.now_override = now_override
@@ -18,15 +17,15 @@ class Scheduler(object):
             return self.now_override
         return datetime.utcnow()
 
-    def queue_task(self, task, run_at):
+    def queue_task(self, session, task, run_at):
         if run_at == None:
             run_at = self.now()
 
         task_instance = task.get_new_instance(scheduled=True,
                                               run_at=run_at)
-        self.session.add(task_instance)
+        session.add(task_instance)
 
-    def queue_workflow_task(self, workflow, task_name, workflow_instance, run_at=None):
+    def queue_workflow_task(self, session, workflow, task_name, workflow_instance, run_at=None):
         if run_at == None:
             run_at = self.now()
 
@@ -39,14 +38,14 @@ class Scheduler(object):
             run_at=run_at,
             workflow_instance_id=workflow_instance.id,
             priority=workflow_instance.priority or workflow.default_priority)
-        self.session.add(task_instance)
+        session.add(task_instance)
 
-    def queue_workflow_tasks(self, workflow_instance):
+    def queue_workflow_tasks(self, session, workflow_instance):
         workflow = self.taskflow.get_workflow(workflow_instance.workflow_name)
         dep_graph = workflow.get_dependencies_graph()
         dep_graph = list(toposort(dep_graph))
 
-        results = self.session.query(TaskInstance)\
+        results = session.query(TaskInstance)\
                     .filter(TaskInstance.workflow_instance_id == workflow_instance.id).all()
         workflow_task_instances = dict()
         for instance in results:
@@ -75,7 +74,7 @@ class Scheduler(object):
                 break
 
             for task_name in tasks_to_queue:
-                self.queue_workflow_task(workflow, task_name, workflow_instance)
+                self.queue_workflow_task(session, workflow, task_name, workflow_instance)
 
             if len(tasks_to_queue) > 0 and total_complete == total_in_step:
                 raise Exception('Attempting to queue tasks for a completed workflow step')
@@ -87,31 +86,31 @@ class Scheduler(object):
 
         if failed:
             workflow_instance.status = 'failed'
-            self.session.commit()
+            session.commit()
         elif total_complete_steps == len(dep_graph):
             workflow_instance.status = 'success'
-            self.session.commit()
+            session.commit()
 
-    def queue_workflow(self, workflow, run_at):
+    def queue_workflow(self, session, workflow, run_at):
         ## TODO: ensure this is in a transaction with queue_tasks ?
         workflow_instance = workflow.get_new_instance(
             scheduled=True,
             run_at=run_at)
-        self.session.add(workflow_instance)
+        session.add(workflow_instance)
         if workflow_instance.run_at <= self.now():
-            self.queue_workflow_tasks(workflow_instance)
-        self.session.commit()
+            self.queue_workflow_tasks(session, workflow_instance)
+        session.commit()
 
-    def schedule_recurring(self, definition_class):
+    def schedule_recurring(self, session, definition_class):
         """Schedules recurring Workflows or Tasks
            definition_class - Workflow or Task"""
 
         if definition_class == Workflow:
             instance_class = WorkflowInstance
-            fresh_recurring_items = self.taskflow.get_fresh_workflows()
+            fresh_recurring_items = self.taskflow.get_fresh_workflows(session)
         elif definition_class == Task:
             instance_class = TaskInstance
-            fresh_recurring_items = self.taskflow.get_fresh_tasks()
+            fresh_recurring_items = self.taskflow.get_fresh_tasks(session)
         else:
             raise Exception('definition_class must be Workflow or Task')
 
@@ -131,7 +130,7 @@ class Scheduler(object):
 
                 ## Get the most recent instance of the recurring item
                 ## TODO: order by heartbeat instead ?
-                most_recent_instance = self.session.query(instance_class)\
+                most_recent_instance = session.query(instance_class)\
                                         .filter(*filters)\
                                         .order_by(instance_class.run_at.desc())\
                                         .first()
@@ -150,21 +149,21 @@ class Scheduler(object):
                         continue
 
                     if definition_class == Workflow:
-                        self.queue_workflow(item, next_run)
+                        self.queue_workflow(session, item, next_run)
                     else:
-                        self.queue_task(item, next_run)
+                        self.queue_task(session, item, next_run)
             # except Exception as e:
             #     ## TODO: switch to logger
             #     ## TODO: rollback?
             #     print('Exception scheduling Workflow "{}"'.format(item.name))
             #     print(e)
 
-    def move_workflows_forward(self):
+    def move_workflows_forward(self, session):
         """Moves queued and running workflows forward"""
         now = self.now()
 
         queued_running_workflow_instances = \
-            self.session.query(WorkflowInstance)\
+            session.query(WorkflowInstance)\
             .filter(or_(WorkflowInstance.status == 'running',
                         and_(WorkflowInstance.status == 'queued',
                              WorkflowInstance.run_at <= now)))\
@@ -174,37 +173,37 @@ class Scheduler(object):
             # try: !!! add this back after dev
                 if workflow_instance.status == 'queued':
                     workflow_instance.status = 'running'
-                    self.queue_workflow_tasks(workflow_instance)
-                    self.session.commit()
+                    self.queue_workflow_tasks(session, workflow_instance)
+                    session.commit()
                 elif workflow_instance.status == 'running':
                     ## TODO: timeout queued workflow instances that have gone an interval past their run_at
-                    self.queue_workflow_tasks(workflow_instance)
-                    self.session.commit()
+                    self.queue_workflow_tasks(session, workflow_instance)
+                    session.commit()
             # except Exception as e:
             #     ## TODO: switch to logger
             #     ## TODO: rollback?
             #     print('Exception scheduling Workflow "{}"'.format(item.name))
             #     print(e)
 
-    def fail_timedout_task_instances(self):
-        self.session.execute(
+    def fail_timedout_task_instances(self, session):
+        session.execute(
             "UPDATE task_instances SET status = 'failed', ended_at = :now " +
             "WHERE status in ('running','retrying') AND " + 
             "(:now > (locked_at + INTERVAL '1 second' * timeout)) AND " +
             "attempts >= max_attempts", {'now': self.now()})
 
-    def run(self):
+    def run(self, session):
         ## TODO: allow for dry_run
 
         ##### Workflow scheduling
 
-        self.schedule_recurring(Workflow)
+        self.schedule_recurring(session, Workflow)
 
-        self.move_workflows_forward()
+        self.move_workflows_forward(session)
 
 
         ##### Task scheduling - tasks that do not belong to a workflow
 
-        self.schedule_recurring(Task)
+        self.schedule_recurring(session, Task)
 
-        self.fail_timedout_task_instances()
+        self.fail_timedout_task_instances(session)

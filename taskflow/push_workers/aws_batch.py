@@ -13,7 +13,7 @@ class AWSBatchPushWorker(PushWorker):
         self.default_job_queue = default_job_queue
         self.default_job_definition = default_job_definition
 
-    def sync_task_instance_states(self, task_instances):
+    def sync_task_instance_states(self, session, task_instances):
         jobs = dict()
         for task_instance in task_instances:
             jobs[task_instance.push_state['jobId']] = task_instance
@@ -34,7 +34,7 @@ class AWSBatchPushWorker(PushWorker):
             if task_instance.status != status:
                 task_instance.status = status
 
-        self.session.commit()
+        session.commit()
 
     def get_job_name(self, workflow, task, task_instance):
         if workflow != None:
@@ -48,7 +48,7 @@ class AWSBatchPushWorker(PushWorker):
                 task.name,
                 task_instance.id)
 
-    def push_task_instances(self, task_instances):
+    def push_task_instances(self, session, task_instances):
         for task_instance in task_instances:
             task = self.taskflow.get_task(task_instance.task_name)
             workflow = None
@@ -91,4 +91,4 @@ class AWSBatchPushWorker(PushWorker):
 
             task_instance.state = 'pushed'
             task_instance.push_state = response
-            self.session.commit()
+            session.commit()

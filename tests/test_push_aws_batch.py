@@ -41,19 +41,19 @@ def test_push(dbsession, monkeypatch):
 
     task1 = Task(name='task1', active=True, push_destination='aws_batch')
     dbsession.add(task1)
-    taskflow = Taskflow(dbsession)
+    taskflow = Taskflow()
     taskflow.add_task(task1)
-    taskflow.add_push_worker(AWSBatchPushWorker(taskflow, dbsession))
-    taskflow.persist()
+    taskflow.add_push_worker(AWSBatchPushWorker(taskflow))
+    taskflow.persist(dbsession)
 
     task_instance = task1.get_new_instance(run_at=datetime(2017, 6, 4, 6))
     dbsession.add(task_instance)
     dbsession.commit()
 
-    taskflow.get_fresh_tasks()
+    taskflow.get_fresh_tasks(dbsession)
 
-    pusher = Pusher(dbsession, taskflow, now_override=datetime(2017, 6, 4, 6))
-    pusher.run()
+    pusher = Pusher(taskflow, now_override=datetime(2017, 6, 4, 6))
+    pusher.run(dbsession)
 
     task_instances = dbsession.query(TaskInstance).all()
     pushed_task_instance = task_instances[0]
@@ -62,23 +62,23 @@ def test_push(dbsession, monkeypatch):
     assert pushed_task_instance.push_state['jobName'] == 'task1__1'
 
     mock_aws_batch.status = 'PENDING'
-    pusher.run()
+    pusher.run(dbsession)
     assert pushed_task_instance.status == 'pushed'
 
     mock_aws_batch.status = 'RUNNABLE'
-    pusher.run()
+    pusher.run(dbsession)
     assert pushed_task_instance.status == 'pushed'
 
     mock_aws_batch.status = 'RUNNING'
-    pusher.run()
+    pusher.run(dbsession)
     assert pushed_task_instance.status == 'running'
 
     mock_aws_batch.status = 'STARTING'
-    pusher.run()
+    pusher.run(dbsession)
     assert pushed_task_instance.status == 'running'
 
     mock_aws_batch.status = 'SUCCEEDED'
-    pusher.run()
+    pusher.run(dbsession)
     assert pushed_task_instance.status == 'success'
 
 def test_fail(dbsession, monkeypatch):
@@ -87,19 +87,19 @@ def test_fail(dbsession, monkeypatch):
 
     task1 = Task(name='task1', active=True, push_destination='aws_batch')
     dbsession.add(task1)
-    taskflow = Taskflow(dbsession)
+    taskflow = Taskflow()
     taskflow.add_task(task1)
-    taskflow.add_push_worker(AWSBatchPushWorker(taskflow, dbsession))
-    taskflow.persist()
+    taskflow.add_push_worker(AWSBatchPushWorker(taskflow))
+    taskflow.persist(dbsession)
 
     task_instance = task1.get_new_instance(run_at=datetime(2017, 6, 4, 6))
     dbsession.add(task_instance)
     dbsession.commit()
 
-    taskflow.get_fresh_tasks()
+    taskflow.get_fresh_tasks(dbsession)
 
-    pusher = Pusher(dbsession, taskflow, now_override=datetime(2017, 6, 4, 6))
-    pusher.run()
+    pusher = Pusher(taskflow, now_override=datetime(2017, 6, 4, 6))
+    pusher.run(dbsession)
 
     task_instances = dbsession.query(TaskInstance).all()
     pushed_task_instance = task_instances[0]
@@ -108,5 +108,9 @@ def test_fail(dbsession, monkeypatch):
     assert pushed_task_instance.push_state['jobName'] == 'task1__1'
 
     mock_aws_batch.status = 'FAILED'
-    pusher.run()
+    pusher.run(dbsession)
     assert pushed_task_instance.status == 'failed'
+
+## TODO: test task and task_instance job_queue param
+
+## TODO: test task and task_instance job_definition param

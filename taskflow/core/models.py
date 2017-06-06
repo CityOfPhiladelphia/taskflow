@@ -168,11 +168,15 @@ pull_sql = """
 WITH nextTasks as (
     SELECT id, status, started_at
     FROM task_instances
-    WHERE{}
-       run_at <= :now
-       AND (status = 'queued' OR
-             ((status = 'running' OR (status = 'retrying' AND attempts < max_attempts)) AND
-              (:now > (locked_at + INTERVAL '1 second' * timeout))))
+    JOIN tasks
+    ON task_instances.task_name = tasks.name
+    WHERE
+        tasks.active = true AND
+        {}
+        run_at <= :now AND
+        (status = 'queued' OR
+          ((status = 'running' OR (status = 'retrying' AND attempts < max_attempts)) AND
+            (:now > (locked_at + INTERVAL '1 second' * timeout))))
     ORDER BY
         CASE WHEN priority = 'critical'
              THEN 1
@@ -206,8 +210,7 @@ task_names_filter = '\n       task_instances.name = ANY(:task_names)\n       AND
 push_filter = '\n       task_instances.push = true\n       AND'
 
 class Taskflow(object):
-    def __init__(self, session):
-        self.session = session
+    def __init__(self):
         self._workflows = dict()
         self._tasks = dict()
         self._push_workers = dict()
@@ -222,9 +225,9 @@ class Taskflow(object):
     def get_workflow(self, workflow_name):
         return self._workflows[workflow_name]
 
-    def get_fresh_workflows(self):
+    def get_fresh_workflows(self, session):
         for workflow_name in self._workflows:
-            self._workflows[workflow_name] = self._workflows[workflow_name].refresh(self.session)
+            self._workflows[workflow_name] = self._workflows[workflow_name].refresh(session)
         return self._workflows.values()
 
     def add_task(self, task):
@@ -239,9 +242,9 @@ class Taskflow(object):
     def get_task(self, task_name):
         return self._tasks[task_name]
 
-    def get_fresh_tasks(self):
+    def get_fresh_tasks(self, session):
         for task_name in self._tasks:
-            self._tasks[task_name] = self._tasks[task_name].refresh(self.session)
+            self._tasks[task_name] = self._tasks[task_name].refresh(session)
         return self._tasks.values()
 
     def add_push_worker(self, push_worker):
@@ -250,14 +253,14 @@ class Taskflow(object):
     def get_push_worker(self, push_type):
         return self._push_workers[push_type]
 
-    def persist(self): ## TODO: make upsert?
+    def persist(self, session): ## TODO: make upsert?
         for workflow in self._workflows.values():
-            self.session.add(workflow) ## TODO: workflows tasks as well?
+            session.add(workflow) ## TODO: workflows tasks as well?
         for task in self._tasks.values():
-            self.session.add(task)
-        self.session.commit()
+            session.add(task)
+        session.commit()
 
-    def pull(self, worker_id, task_names=None, max_tasks=1, now=None, push=False):
+    def pull(self, session, worker_id, task_names=None, max_tasks=1, now=None, push=False):
         if now == None:
             now = datetime.utcnow()
 
@@ -276,7 +279,7 @@ class Taskflow(object):
 
         pull_sql_with_filters = pull_sql.format(filters)
 
-        task_instances = self.session.query(TaskInstance)\
+        task_instances = session.query(TaskInstance)\
             .from_statement(text(pull_sql_with_filters))\
             .params(**params)\
             .all()

@@ -30,10 +30,10 @@ def workflows(dbsession):
     return [workflow1, workflow2]
 
 def test_schedule_recurring_workflow(dbsession, workflows):
-    taskflow = Taskflow(dbsession)
+    taskflow = Taskflow()
     taskflow.add_workflows(workflows)
-    scheduler = Scheduler(dbsession, taskflow, now_override=datetime(2017, 6, 3, 6))
-    scheduler.run()
+    scheduler = Scheduler(taskflow, now_override=datetime(2017, 6, 3, 6))
+    scheduler.run(dbsession)
 
     workflow_instances = dbsession.query(WorkflowInstance).all()
     assert len(workflow_instances) == 1
@@ -45,7 +45,7 @@ def test_schedule_recurring_workflow(dbsession, workflows):
     assert len(task_instances) == 0
 
 def test_start_workflow(dbsession, workflows):
-    taskflow = Taskflow(dbsession)
+    taskflow = Taskflow()
     taskflow.add_workflows(workflows)
 
     workflow_instance = WorkflowInstance(
@@ -57,8 +57,8 @@ def test_start_workflow(dbsession, workflows):
     dbsession.add(workflow_instance)
     dbsession.commit()
 
-    scheduler = Scheduler(dbsession, taskflow, now_override=datetime(2017, 6, 3, 6, 0, 45))
-    scheduler.run()
+    scheduler = Scheduler(taskflow, now_override=datetime(2017, 6, 3, 6, 0, 45))
+    scheduler.run(dbsession)
 
     dbsession.refresh(workflow_instance)
     assert workflow_instance.status == 'running'
@@ -70,7 +70,7 @@ def test_start_workflow(dbsession, workflows):
         assert instance.status == 'queued'
 
 def test_workflow_running_no_change(dbsession, workflows):
-    taskflow = Taskflow(dbsession)
+    taskflow = Taskflow()
     taskflow.add_workflows(workflows)
 
     workflow1 = workflows[0]
@@ -107,8 +107,8 @@ def test_workflow_running_no_change(dbsession, workflows):
     dbsession.add(task_instance2)
     dbsession.commit()
 
-    scheduler = Scheduler(dbsession, taskflow, now_override=datetime(2017, 6, 3, 6, 12))
-    scheduler.run()
+    scheduler = Scheduler(taskflow, now_override=datetime(2017, 6, 3, 6, 12))
+    scheduler.run(dbsession)
 
     task_instances = dbsession.query(TaskInstance).all()
     assert len(task_instances) == 2
@@ -117,7 +117,7 @@ def test_workflow_running_no_change(dbsession, workflows):
         assert instance.status == 'running'
 
 def test_workflow_next_step(dbsession, workflows):
-    taskflow = Taskflow(dbsession)
+    taskflow = Taskflow()
     taskflow.add_workflows(workflows)
 
     workflow_instance = WorkflowInstance(
@@ -152,8 +152,8 @@ def test_workflow_next_step(dbsession, workflows):
     dbsession.add(task_instance2)
     dbsession.commit()
 
-    scheduler = Scheduler(dbsession, taskflow, now_override=datetime(2017, 6, 3, 6, 12))
-    scheduler.run()
+    scheduler = Scheduler(taskflow, now_override=datetime(2017, 6, 3, 6, 12))
+    scheduler.run(dbsession)
 
     task_instances = dbsession.query(TaskInstance).all()
     assert len(task_instances) == 3
@@ -165,7 +165,7 @@ def test_workflow_next_step(dbsession, workflows):
             assert instance.status == 'queued'
 
 def test_workflow_success(dbsession, workflows):
-    taskflow = Taskflow(dbsession)
+    taskflow = Taskflow()
     taskflow.add_workflows(workflows)
 
     workflow_instance = WorkflowInstance(
@@ -222,8 +222,8 @@ def test_workflow_success(dbsession, workflows):
     dbsession.add(task_instance4)
     dbsession.commit()
 
-    scheduler = Scheduler(dbsession, taskflow, now_override=datetime(2017, 6, 3, 6, 12))
-    scheduler.run()
+    scheduler = Scheduler(taskflow, now_override=datetime(2017, 6, 3, 6, 12))
+    scheduler.run(dbsession)
 
     dbsession.refresh(workflow_instance)
     assert workflow_instance.status == 'success'
@@ -235,7 +235,7 @@ def test_workflow_success(dbsession, workflows):
         assert instance.status == 'success'
 
 def test_workflow_fail(dbsession, workflows):
-    taskflow = Taskflow(dbsession)
+    taskflow = Taskflow()
     taskflow.add_workflows(workflows)
 
     workflow_instance = WorkflowInstance(
@@ -281,8 +281,8 @@ def test_workflow_fail(dbsession, workflows):
     dbsession.add(task_instance3)
     dbsession.commit()
 
-    scheduler = Scheduler(dbsession, taskflow, now_override=datetime(2017, 6, 3, 6, 12))
-    scheduler.run()
+    scheduler = Scheduler(taskflow, now_override=datetime(2017, 6, 3, 6, 12))
+    scheduler.run(dbsession)
 
     dbsession.refresh(workflow_instance)
     assert workflow_instance.status == 'failed'
