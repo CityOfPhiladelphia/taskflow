@@ -164,16 +164,11 @@ class Task(Schedulable, BaseModel):
             max_attempts=max_attempts or self.retries,
             timeout=timeout or self.timeout)
 
-## TODO: add 'pushed' below for timeouts?
-
 pull_sql = """
 WITH nextTasks as (
     SELECT id, status, started_at
     FROM task_instances
-    JOIN tasks
-    ON task_instances.task_name = tasks.name
     WHERE
-        tasks.active = true AND
         {}
         run_at <= :now AND
         (status = 'queued' OR
@@ -242,7 +237,12 @@ class Taskflow(object):
             self.add_task(task)
 
     def get_task(self, task_name):
-        return self._tasks[task_name]
+        if task_name in self._tasks:
+            return self._tasks[task_name]
+        for workflow in self._workflows.values():
+            task = workflow.get_task(task_name)
+            if task:
+                return task
 
     def get_fresh_tasks(self, session):
         for task_name in self._tasks:

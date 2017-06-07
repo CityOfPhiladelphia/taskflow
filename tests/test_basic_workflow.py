@@ -5,6 +5,8 @@ import pytest
 from taskflow import Scheduler, Taskflow, Workflow, WorkflowInstance, Task, TaskInstance
 from shared_fixtures import *
 
+get_logging()
+
 @pytest.fixture
 def workflows(dbsession):
     workflow1 = Workflow(name='workflow1', active=True, schedule='0 6 * * *')

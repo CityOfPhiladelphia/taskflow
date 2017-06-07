@@ -9,6 +9,8 @@ from taskflow import Scheduler, Pusher, Taskflow, Task, TaskInstance
 from taskflow.push_workers.aws_batch import AWSBatchPushWorker
 from shared_fixtures import *
 
+get_logging()
+
 class MockAWSBatch(object):
     def __init__(self, jobs, status):
         self.jobs = jobs

@@ -1,8 +1,18 @@
+import logging
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 import pytest
 
 from taskflow.core.models import BaseModel
+
+def get_logging():
+    logger = logging.getLogger()
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('[%(asctime)s] %(name)s %(levelname)s %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(logging.DEBUG)
 
 @pytest.fixture(scope='session')
 def engine():

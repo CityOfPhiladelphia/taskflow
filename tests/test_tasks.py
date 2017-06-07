@@ -5,6 +5,8 @@ import pytest
 from taskflow import Scheduler, Taskflow, Task, TaskInstance
 from shared_fixtures import *
 
+get_logging()
+
 @pytest.fixture
 def tasks(dbsession):
     task1 = Task(name='task1', active=True)
@@ -19,6 +21,8 @@ def tasks(dbsession):
     dbsession.commit()
 
     return [task1, task2, task3, task4]
+
+## TODO: test multiple works pulling, one wins
 
 ## TODO: test task inactive
 

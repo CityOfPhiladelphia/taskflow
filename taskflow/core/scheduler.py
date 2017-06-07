@@ -1,4 +1,5 @@
 from datetime import datetime
+import logging
 
 from toposort import toposort
 from sqlalchemy import or_, and_
@@ -7,6 +8,8 @@ from .models import Workflow, WorkflowInstance, Task, TaskInstance
 
 class Scheduler(object):
     def __init__(self, taskflow, dry_run=False, now_override=None):
+        self.logger = logging.getLogger('Scheduler')
+
         self.taskflow = taskflow
 
         self.dry_run = dry_run
@@ -25,6 +28,8 @@ class Scheduler(object):
         task_instance = task.get_new_instance(scheduled=True,
                                               run_at=run_at)
 
+        self.logger.info('Queuing task: %s %s', task.name, run_at)
+
         if not self.dry_run:
             session.add(task_instance)
 
@@ -41,6 +46,8 @@ class Scheduler(object):
             run_at=run_at,
             workflow_instance_id=workflow_instance.id,
             priority=workflow_instance.priority or workflow.default_priority)
+
+        self.logger.info('Queuing workflow task: %s %s %s', workflow.name, task.name, run_at)
         
         if not self.dry_run:
             session.add(task_instance)
@@ -100,10 +107,11 @@ class Scheduler(object):
                 session.commit()
 
     def queue_workflow(self, session, workflow, run_at):
-        ## TODO: ensure this is in a transaction with queue_tasks ?
         workflow_instance = workflow.get_new_instance(
             scheduled=True,
             run_at=run_at)
+
+        self.logger.info('Queuing workflow: %s', workflow.name)
 
         if not self.dry_run:
             session.add(workflow_instance)
@@ -134,7 +142,9 @@ class Scheduler(object):
                                  fresh_recurring_items)
 
         for item in recurring_items:
-            # try: !!! add this back after dev
+            self.logger.info('Scheduling recurring %s: %s', definition_class.__name__.lower(), item.name)
+
+            try:
                 if definition_class == Workflow:
                     filters = (instance_class.workflow_name == item.name,)
                 else:
@@ -159,19 +169,18 @@ class Scheduler(object):
 
                     if item.start_date and next_run < item.start_date or \
                         item.end_date and next_run > item.end_date:
+                        self.logger.info('%s is not within its scheduled range', item.name)
                         continue
 
                     if definition_class == Workflow:
                         self.queue_workflow(session, item, next_run)
                     else:
                         self.queue_task(session, item, next_run)
-            # except Exception as e:
-            #     ## TODO: switch to logger
-            #     ## TODO: rollback?
-            #     print('Exception scheduling Workflow "{}"'.format(item.name))
-            #     print(e)
+            except Exception:
+                ## TODO: rollback?
+                self.logger.exception('Exception scheduling %s', item.name)
 
-    def move_workflows_forward(self, session):
+    def advance_workflows_forward(self, session):
         """Moves queued and running workflows forward"""
         now = self.now()
 
@@ -183,7 +192,8 @@ class Scheduler(object):
             .all() ## TODO: paginate?
 
         for workflow_instance in queued_running_workflow_instances:
-            # try: !!! add this back after dev
+            self.logger.info('Checking %s - %s for advancment', workflow_instance.workflow_name, workflow_instance.id)
+            try:
                 if workflow_instance.status == 'queued':
                     workflow_instance.status = 'running'
                     self.queue_workflow_tasks(session, workflow_instance)
@@ -194,13 +204,12 @@ class Scheduler(object):
                     self.queue_workflow_tasks(session, workflow_instance)
                     if not self.dry_run:
                         session.commit()
-            # except Exception as e:
-            #     ## TODO: switch to logger
-            #     ## TODO: rollback?
-            #     print('Exception scheduling Workflow "{}"'.format(item.name))
-            #     print(e)
+            except Exception:
+                ## TODO: rollback?
+                self.logger.exception('Exception scheduling %s', item.name)
 
     def fail_timedout_task_instances(self, session):
+        ## TODO: return info using RETURNING and log
         if not self.dry_run:
             session.execute(
                 "UPDATE task_instances SET status = 'failed', ended_at = :now " +
@@ -211,15 +220,27 @@ class Scheduler(object):
     def run(self, session):
         ## TODO: what happens when a schedule changes?
 
+        self.logger.info('*** Starting Scheduler Run ***')
+
         ##### Workflow scheduling
+
+        self.logger.info('Scheduling recurring workflows')
 
         self.schedule_recurring(session, Workflow)
 
-        self.move_workflows_forward(session)
+        self.logger.info('Advancing workflows')
+
+        self.advance_workflows_forward(session)
 
 
         ##### Task scheduling - tasks that do not belong to a workflow
 
+        self.logger.info('Scheduling recurring tasks')
+
         self.schedule_recurring(session, Task)
 
+        self.logger.info('Failing timed out tasks')
+
         self.fail_timedout_task_instances(session)
+
+        self.logger.info('*** End Scheduler Run ***')
