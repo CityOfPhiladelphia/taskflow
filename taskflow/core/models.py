@@ -113,7 +113,6 @@ class Task(Schedulable, BaseModel):
         timeout=300,
         params=None,
         push_destination=None,
-        fn=None,
         *args, **kwargs):
         super(Task, self).__init__(*args, **kwargs)
 
@@ -129,7 +128,6 @@ class Task(Schedulable, BaseModel):
         self.params = params
 
         self.push_destination = push_destination
-        self.fn = fn
 
         self._dependencies = set()
 
@@ -163,6 +161,9 @@ class Task(Schedulable, BaseModel):
             run_at=run_at or datetime.utcnow(),
             max_attempts=max_attempts or self.retries,
             timeout=timeout or self.timeout)
+
+    def execute(self, task_instance):
+        raise NotImplementedError()
 
 pull_sql = """
 WITH nextTasks as (

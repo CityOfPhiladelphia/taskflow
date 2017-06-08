@@ -12,6 +12,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from taskflow import Scheduler, Pusher, Taskflow, Worker, TaskInstance
+from taskflow.core.models import BaseModel
 
 def get_logging():
     logger = logging.getLogger()
@@ -59,6 +60,14 @@ def main(ctx, taskflow):
 @click.pass_context
 def api_server(ctx):
     pass
+
+@main.command()
+@click.option('--sql-alchemy-connection')
+@click.pass_context
+def init_db(ctx, sql_alchemy_connection):
+    connection_string = sql_alchemy_connection or os.getenv('SQL_ALCHEMY_CONNECTION')
+    engine = create_engine(connection_string)
+    BaseModel.metadata.create_all(engine)
 
 @main.command()
 @click.option('--sql-alchemy-connection')

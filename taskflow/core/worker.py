@@ -10,7 +10,7 @@ class Worker(object):
     def execute(self, session, task_instance):
         try:
             task = self.taskflow.get_task(task_instance.task_name)
-            task.fn(task_instance)
+            task.execute(task_instance)
         except Exception:
             self.logger.exception('Error executing: %s %s', task_instance.task_name, task_instance.id)
             task_instance.fail(session) ## TODO: retry?
