@@ -1,5 +1,5 @@
-from .core.models import Taskflow, Task, Workflow, WorkflowInstance, TaskInstance
-from .core.scheduler import Scheduler
-from .core.pusher import Pusher
-from .core.worker import Worker
-from .cli import cli
+from taskflow.core.models import Taskflow, Task, Workflow, WorkflowInstance, TaskInstance
+from taskflow.core.scheduler import Scheduler
+from taskflow.core.pusher import Pusher
+from taskflow.core.worker import Worker
+from taskflow.cli import cli

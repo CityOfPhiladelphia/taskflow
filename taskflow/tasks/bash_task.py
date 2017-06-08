@@ -3,6 +3,7 @@ import signal
 import logging
 import re
 import sys
+import shutil
 from subprocess import Popen, PIPE
 from tempfile import gettempdir, NamedTemporaryFile
 from threading import Thread
