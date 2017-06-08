@@ -4,7 +4,7 @@ from distutils.core import setup
 
 setup(
     name='taskflow',
-    version='0.1dev',
+    version='0.2',
     packages=['taskflow',],
     install_requires=[
     ],
