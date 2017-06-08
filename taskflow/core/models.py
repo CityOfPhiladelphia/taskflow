@@ -165,6 +165,9 @@ class Task(Schedulable, BaseModel):
     def execute(self, task_instance):
         raise NotImplementedError()
 
+    def on_kill(self):
+        pass
+
 pull_sql = """
 WITH nextTasks as (
     SELECT id, status, started_at
