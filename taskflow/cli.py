@@ -26,21 +26,27 @@ def get_worker_id():
     worker_components = []
 
     ## AWS
-    response = requests.get('http://169.254.169.254/latest/meta-data/instance-id')
-    if response.status_code == 200:
-        worker_components.append(response.text)
+    try:
+        response = requests.get('http://169.254.169.254/latest/meta-data/instance-id', timeout=0.1)
+        if response.status_code == 200:
+            worker_components.append(response.text)
+    except:
+        pass
 
     ## ECS (AWS Batch uses ECS as well)
-    response = requests.get('http://172.17.0.1:51678/v1/tasks')
-    if response.status_code == 200:
-        tasks = response.json()['Tasks']
-        short_docker_id = os.getenv('HOSTNAME', None) ## ECS marks the short docker id as the HOSTNAME
-        if short_docker_id != None:
-            matched = list(filter(
-                lambda ecs_task: ecs_task['Containers'][0]['DockerId'][0:12] == short_docker_id,
-                tasks))
-            if len(matched) > 0:
-                worker_components.append(matched[0]['Containers'][0]['Arn'])
+    try:
+        response = requests.get('http://172.17.0.1:51678/v1/tasks', timeout=0.1)
+        if response.status_code == 200:
+            tasks = response.json()['Tasks']
+            short_docker_id = os.getenv('HOSTNAME', None) ## ECS marks the short docker id as the HOSTNAME
+            if short_docker_id != None:
+                matched = list(filter(
+                    lambda ecs_task: ecs_task['Containers'][0]['DockerId'][0:12] == short_docker_id,
+                    tasks))
+                if len(matched) > 0:
+                    worker_components.append(matched[0]['Containers'][0]['Arn'])
+    except:
+        pass
 
     ## fallback to IP
     if len(worker_components) == 0:
@@ -136,8 +142,6 @@ def pull_worker(ctx, sql_alchemy_connection, num_runs, dry_run, now_override, sl
         session = Session()
         
         task_instances = taskflow.pull(session, worker_id, task_names=task_names, now=now_override)
-
-        print(task_instances)
         
         if len(task_instances) > 0:
             worker.execute(session, task_instances[0])
@@ -185,8 +189,6 @@ def queue_task(ctx, task_name, workflow_instance_id, run_at, priority, params, s
     engine = create_engine(connection_string)
     Session = sessionmaker(bind=engine)
 
-    worker_id = get_worker_id()
-
     session = Session()
 
     taskflow = ctx.obj['taskflow']
@@ -214,15 +216,12 @@ def queue_task(ctx, task_name, workflow_instance_id, run_at, priority, params, s
 @click.argument('workflow_name')
 @click.option('--run-at')
 @click.option('--priority')
-@click.option('--params')
 @click.option('--sql-alchemy-connection')
 @click.pass_context
-def queue_workflow(ctx, workflow_name, run_at, priority, params, sql_alchemy_connection):
+def queue_workflow(ctx, workflow_name, run_at, priority, sql_alchemy_connection):
     connection_string = sql_alchemy_connection or os.getenv('SQL_ALCHEMY_CONNECTION')
     engine = create_engine(connection_string)
     Session = sessionmaker(bind=engine)
-
-    worker_id = get_worker_id()
 
     session = Session()
 
@@ -234,13 +233,9 @@ def queue_workflow(ctx, workflow_name, run_at, priority, params, sql_alchemy_con
     if workflow == None:
         raise Exception('Workflow `{}` not found'.format(workflow_name))
 
-    if params != None:
-        params = json.loads(params)
-
     workflow_instance = workflow.get_new_instance(
         run_at=run_at,
-        priority=priority,
-        params=params)
+        priority=priority)
 
     session.add(workflow_instance)
     session.commit()

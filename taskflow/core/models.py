@@ -381,7 +381,7 @@ class TaskInstance(SchedulableInstance):
     push = Column(Boolean, nullable=False)
     locked_at = Column(DateTime) ## TODO: should workflow instaces have locked_at as well ?
     worker_id = Column(String)
-    params = Column(JSONB)
+    params = Column(JSONB, default={})
     push_state = Column(JSONB)
     attempts = Column(Integer, nullable=False, default=0)
     max_attempts = Column(Integer, nullable=False, default=1)

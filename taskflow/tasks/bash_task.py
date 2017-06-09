@@ -8,6 +8,7 @@ from subprocess import Popen, PIPE
 from tempfile import gettempdir, NamedTemporaryFile
 from threading import Thread
 from contextlib import contextmanager
+from tempfile import mkdtemp
 
 from smart_open import smart_open
 import boto
@@ -61,17 +62,17 @@ class BashTask(Task):
         return self.params['command']
 
     def execute(self, task_instance):
+        logger = logging.getLogger(self.name)
         bash_command = self.get_command()
-        logging.info('Temporary directory root location: %s', gettempdir())
+        logger.info('Temporary directory root location: %s', gettempdir())
         with TemporaryDirectory(prefix='taskflowtmp') as tmp_dir:
-            with NamedTemporaryFile(dir=tmp_dir, prefix=task_instance.id) as f:
-
+            with NamedTemporaryFile(dir=tmp_dir, prefix=str(task_instance.id)) as f:
                 f.write(bytes(bash_command, 'utf_8'))
                 f.flush()
                 fname = f.name
                 script_location = tmp_dir + "/" + fname
-                logging.info('Temporary script location: %s', script_location)
-                logging.info('Running command: %s', bash_command)
+                logger.info('Temporary script location: %s', script_location)
+                logger.info('Running command: %s', bash_command)
 
                 input_file = None
                 if 'input_file' in task_instance.params and task_instance.params['input_file'] != None:
@@ -93,7 +94,6 @@ class BashTask(Task):
                     stdout=PIPE if out else None,
                     stderr=PIPE,
                     cwd=tmp_dir,
-                    env=self.env,
                     preexec_fn=os.setsid,
                     bufsize=1,
                     close_fds=ON_POSIX)
@@ -107,14 +107,14 @@ class BashTask(Task):
                     pipe_stream(sp.stdout, out)
 
                 for line in iter(sp.stderr.readline, b''):
-                    logging.info(line)
+                    logger.info(line)
 
                 sp.wait()
 
                 if input_file:
                     input_file.read_key.close(fast=True)
 
-                logging.info('Command exited with return code %s', sp.returncode)
+                logger.info('Command exited with return code %s', sp.returncode)
 
                 if sp.returncode:
                     raise Exception('Bash command failed')
