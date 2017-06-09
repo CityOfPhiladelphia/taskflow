@@ -5,7 +5,12 @@ from distutils.core import setup
 setup(
     name='taskflow',
     version='0.0.2',
-    packages=['taskflow',],
+    packages=[
+        'taskflow',
+        'taskflow.core',
+        'taskflow.push_workers',
+        'taskflow.tasks'
+    ],
     install_requires=[
     ],
     dependency_links=[
