@@ -52,7 +52,7 @@ def get_worker_id():
     if len(worker_components) == 0:
         return socket.gethostbyname(socket.gethostname())
     else:
-        return worker_components.join('-')
+        return '-'.join(worker_components)
 
 @click.group()
 @click.option('--taskflow')

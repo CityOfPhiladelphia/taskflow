@@ -111,7 +111,7 @@ class Task(Schedulable, BaseModel):
         workflow=None,
         retries=0,
         timeout=300,
-        params=None,
+        params={},
         push_destination=None,
         *args, **kwargs):
         super(Task, self).__init__(*args, **kwargs)

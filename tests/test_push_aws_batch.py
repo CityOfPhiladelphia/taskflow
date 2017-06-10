@@ -116,3 +116,7 @@ def test_fail(dbsession, monkeypatch):
 ## TODO: test task and task_instance job_queue param
 
 ## TODO: test task and task_instance job_definition param
+
+## TODO: assert that all parameters are strings
+
+## TODO: assert that all environment values are string

@@ -22,7 +22,7 @@ class AWSBatchPushWorker(PushWorker):
         for task_instance in task_instances:
             jobs[task_instance.push_state['jobId']] = task_instance
 
-        response = self.batch_client.describe_jobs(jobs=jobs.keys()) ## TODO: batch by 100
+        response = self.batch_client.describe_jobs(jobs=list(jobs.keys())) ## TODO: batch by 100
 
         ## TODO: timeout pushed tasks?
         ## TODO: tasks that are 'pushed' but not in AWS batch?
@@ -71,23 +71,23 @@ class AWSBatchPushWorker(PushWorker):
 
                 parameters = {
                     'task': task.name,
-                    'task_instance': task_instance.id
+                    'task_instance': str(task_instance.id)
                 }
 
                 if workflow != None:
                     parameters['workflow'] = workflow.name
-                    parameters['workflow_instance'] = task_instance.workflow_instance_id
+                    parameters['workflow_instance'] = str(task_instance.workflow_instance_id)
 
-                if task_instance.params and task_instance.params['job_queue']:
+                if 'job_queue' in task_instance.params and task_instance.params['job_queue']:
                     job_queue = task_instance.params['job_queue']
-                elif task.params and task.params['job_queue']:
+                elif 'job_queue' in task.params and task.params['job_queue']:
                     job_queue = task.params['job_queue']
                 else:
                     job_queue = self.default_job_queue
 
-                if task_instance.params and task_instance.params['job_definition']:
+                if 'job_definition' in task_instance.params and task_instance.params['job_definition']:
                     job_definition = task_instance.params['job_definition']
-                elif task.params and task.params['job_definition']:
+                elif 'job_definition' in task.params and task.params['job_definition']:
                     job_definition = task.params['job_definition']
                 else:
                     job_definition = self.default_job_definition
@@ -99,7 +99,7 @@ class AWSBatchPushWorker(PushWorker):
                     },
                     {
                         'name': 'TASKFLOW_TASK_INSTANCE_ID',
-                        'value': task_instance.id
+                        'value': str(task_instance.id)
                     }
                 ]
 
@@ -110,7 +110,7 @@ class AWSBatchPushWorker(PushWorker):
                     })
                     environment.append({
                         'name': 'TASKFLOW_WORKFLOW_INSTANCE_ID',
-                        'value': task_instance.workflow_instance_id
+                        'value': str(task_instance.workflow_instance_id)
                     })
 
                 job_name = self.get_job_name(workflow, task, task_instance)
