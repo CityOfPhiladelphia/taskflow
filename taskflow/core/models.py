@@ -354,7 +354,8 @@ class WorkflowInstance(SchedulableInstance):
     params = Column(JSONB)
 
     def __repr__(self):
-        return '<WorkflowInstance workflow: {} run_at: {} status: {}>'.format(
+        return '<WorkflowInstance id: {} workflow: {} run_at: {} status: {}>'.format(
+                    self.id,
                     self.workflow_name,
                     self.run_at,
                     self.status)
@@ -388,7 +389,8 @@ class TaskInstance(SchedulableInstance):
     timeout = Column(Integer, nullable=False)
 
     def __repr__(self):
-        return '<TaskInstance task: {} workflow_instance: {} status: {}>'.format(
+        return '<TaskInstance id: {} task: {} workflow_instance: {} status: {}>'.format(
+                    self.id,
                     self.task_name,
                     self.workflow_instance_id,
                     self.status)

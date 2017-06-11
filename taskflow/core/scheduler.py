@@ -99,10 +99,12 @@ class Scheduler(object):
 
         if failed:
             workflow_instance.status = 'failed'
+            workflow_instance.ended_at = self.now()
             if not self.dry_run:
                 session.commit()
         elif total_complete_steps == len(dep_graph):
             workflow_instance.status = 'success'
+            workflow_instance.ended_at = self.now()
             if not self.dry_run:
                 session.commit()
 
@@ -196,6 +198,7 @@ class Scheduler(object):
             try:
                 if workflow_instance.status == 'queued':
                     workflow_instance.status = 'running'
+                    workflow_instance.started_at = self.now()
                     self.queue_workflow_tasks(session, workflow_instance)
                     if not self.dry_run:
                         session.commit()

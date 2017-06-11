@@ -24,6 +24,7 @@ class AWSBatchPushWorker(PushWorker):
 
         response = self.batch_client.describe_jobs(jobs=list(jobs.keys())) ## TODO: batch by 100
 
+        ## TODO: tasks that go past 24 hour period ?
         ## TODO: timeout pushed tasks?
         ## TODO: tasks that are 'pushed' but not in AWS batch?
 
@@ -62,9 +63,8 @@ class AWSBatchPushWorker(PushWorker):
                 task = self.taskflow.get_task(task_instance.task_name)
                 workflow = None
 
-                if task == None:
-                    workflow = self.taskflow.get_workflow(task.workflow)
-                    task = workflow.get_task(task_instance.task_name)
+                if task.workflow != None:
+                    workflow = self.taskflow.get_workflow(task.workflow.name)
 
                 if task == None:
                     raise Exception('Task `{}` not found'.format(task_instance.task_name))
@@ -133,5 +133,5 @@ class AWSBatchPushWorker(PushWorker):
                 if not dry_run:
                     session.commit()
             except Exception:
-                ## TODO: rollback?
+                session.rollback()
                 self.logger.exception('Exception submitting %s %s', task_instance.task_name, task_instance.id)

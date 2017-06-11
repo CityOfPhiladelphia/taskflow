@@ -33,6 +33,8 @@ def workflows(dbsession):
 
 ## TODO: test dry run
 
+## TODO: assert started_at and ended_at
+
 def test_schedule_recurring_workflow(dbsession, workflows):
     taskflow = Taskflow()
     taskflow.add_workflows(workflows)

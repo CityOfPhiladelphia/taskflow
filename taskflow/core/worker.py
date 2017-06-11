@@ -25,5 +25,6 @@ class Worker(object):
         except Exception:
             self.logger.exception('Error executing: %s %s', task_instance.task_name, task_instance.id)
             task_instance.fail(session) ## TODO: retry?
-            return
+            return False
         task_instance.succeed(session)
+        return True

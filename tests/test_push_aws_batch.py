@@ -120,3 +120,5 @@ def test_fail(dbsession, monkeypatch):
 ## TODO: assert that all parameters are strings
 
 ## TODO: assert that all environment values are string
+
+## TODO: assert env vars exists, each individually

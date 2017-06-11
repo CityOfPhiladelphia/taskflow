@@ -5,6 +5,7 @@ from datetime import datetime
 import json
 import os
 import socket
+import sys
 
 import requests
 import click
@@ -172,9 +173,12 @@ def run_task(ctx, task_instance_id, sql_alchemy_connection, worker_id):
     task_instance = session.query(TaskInstance).get(task_instance_id)
 
     worker = Worker(taskflow)
-    worker.execute(session, task_instance)
+    success = worker.execute(session, task_instance)
 
     session.close()
+
+    if not success:
+        sys.exit(1)
 
 @main.command()
 @click.argument('task_name')
