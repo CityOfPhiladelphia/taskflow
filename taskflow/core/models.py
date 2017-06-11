@@ -55,9 +55,9 @@ class Schedulable(object):
 
     def refresh(self, session):
         recurring_class = self.__class__
+        session.merge(self)
         instance = session.query(recurring_class).filter(recurring_class.name == self.name).one()
         self.active = instance.active
-        session.merge(self)
 
     def next_run(self, base_time=None):
         if not base_time:
@@ -159,7 +159,7 @@ class Task(Schedulable, BaseModel):
             status=status,
             priority=priority or self.default_priority,
             run_at=run_at or datetime.utcnow(),
-            max_attempts=max_attempts or self.retries,
+            max_attempts=max_attempts or (self.retries + 1),
             timeout=timeout or self.timeout)
 
     def execute(self, task_instance):
