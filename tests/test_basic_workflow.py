@@ -98,7 +98,8 @@ def test_workflow_running_no_change(dbsession, workflows):
         attempts=1,
         priority='normal',
         push=False,
-        timeout=300)
+        timeout=300,
+        retry_delay=300)
     task_instance2 = TaskInstance(
         task_name='task2',
         scheduled=True,
@@ -108,7 +109,8 @@ def test_workflow_running_no_change(dbsession, workflows):
         attempts=1,
         priority='normal',
         push=False,
-        timeout=300)
+        timeout=300,
+        retry_delay=300)
     dbsession.add(task_instance1)
     dbsession.add(task_instance2)
     dbsession.commit()
@@ -143,7 +145,8 @@ def test_workflow_next_step(dbsession, workflows):
         attempts=1,
         priority='normal',
         push=False,
-        timeout=300)
+        timeout=300,
+        retry_delay=300)
     task_instance2 = TaskInstance(
         task_name='task2',
         scheduled=True,
@@ -153,7 +156,8 @@ def test_workflow_next_step(dbsession, workflows):
         attempts=1,
         priority='normal',
         push=False,
-        timeout=300)
+        timeout=300,
+        retry_delay=300)
     dbsession.add(task_instance1)
     dbsession.add(task_instance2)
     dbsession.commit()
@@ -191,7 +195,8 @@ def test_workflow_success(dbsession, workflows):
         attempts=1,
         priority='normal',
         push=False,
-        timeout=300)
+        timeout=300,
+        retry_delay=300)
     task_instance2 = TaskInstance(
         task_name='task2',
         scheduled=True,
@@ -201,7 +206,8 @@ def test_workflow_success(dbsession, workflows):
         attempts=1,
         priority='normal',
         push=False,
-        timeout=300)
+        timeout=300,
+        retry_delay=300)
     task_instance3 = TaskInstance(
         task_name='task3',
         scheduled=True,
@@ -211,7 +217,8 @@ def test_workflow_success(dbsession, workflows):
         attempts=1,
         priority='normal',
         push=False,
-        timeout=300)
+        timeout=300,
+        retry_delay=300)
     task_instance4 = TaskInstance(
         task_name='task4',
         scheduled=True,
@@ -221,7 +228,8 @@ def test_workflow_success(dbsession, workflows):
         attempts=1,
         priority='normal',
         push=False,
-        timeout=300)
+        timeout=300,
+        retry_delay=300)
     dbsession.add(task_instance1)
     dbsession.add(task_instance2)
     dbsession.add(task_instance3)
@@ -261,7 +269,8 @@ def test_workflow_fail(dbsession, workflows):
         attempts=1,
         priority='normal',
         push=False,
-        timeout=300)
+        timeout=300,
+        retry_delay=300)
     task_instance2 = TaskInstance(
         task_name='task2',
         scheduled=True,
@@ -271,7 +280,8 @@ def test_workflow_fail(dbsession, workflows):
         attempts=1,
         priority='normal',
         push=False,
-        timeout=300)
+        timeout=300,
+        retry_delay=300)
     task_instance3 = TaskInstance(
         task_name='task3',
         scheduled=True,
@@ -281,7 +291,8 @@ def test_workflow_fail(dbsession, workflows):
         attempts=1,
         priority='normal',
         push=False,
-        timeout=300)
+        timeout=300,
+        retry_delay=300)
     dbsession.add(task_instance1)
     dbsession.add(task_instance2)
     dbsession.add(task_instance3)

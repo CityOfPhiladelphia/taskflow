@@ -53,16 +53,6 @@ class Schedulable(object):
         self.start_date = start_date
         self.end_date = end_date
 
-    def refresh(self, session):
-        recurring_class = self.__class__
-        instance = session.query(recurring_class).filter(recurring_class.name == self.name).one_or_none()
-        if not instance:
-            session.add(self)
-            session.commit()
-        else:
-            session.merge(self)
-        self.active = instance.active
-
     def next_run(self, base_time=None):
         if not base_time:
             base_time = datetime.utcnow()
@@ -115,6 +105,7 @@ class Task(Schedulable, BaseModel):
         workflow=None,
         retries=0,
         timeout=300,
+        retry_delay=300,
         params={},
         push_destination=None,
         *args, **kwargs):
@@ -128,6 +119,7 @@ class Task(Schedulable, BaseModel):
 
         self.retries = retries
         self.timeout = timeout
+        self.retry_delay = retry_delay
 
         self.params = params
 
@@ -154,7 +146,8 @@ class Task(Schedulable, BaseModel):
                          run_at=None,
                          priority=None,
                          max_attempts=None,
-                         timeout=None):
+                         timeout=None,
+                         retry_delay=None):
         return TaskInstance(
             task_name=self.name,
             workflow_instance_id=workflow_instance_id,
@@ -164,14 +157,15 @@ class Task(Schedulable, BaseModel):
             priority=priority or self.default_priority,
             run_at=run_at or datetime.utcnow(),
             max_attempts=max_attempts or (self.retries + 1),
-            timeout=timeout or self.timeout)
+            timeout=timeout or self.timeout,
+            retry_delay=retry_delay or self.retry_delay)
 
     def execute(self, task_instance):
         raise NotImplementedError()
 
     def on_kill(self):
         pass
-## TODO: !!! add retry_wait
+
 pull_sql = """
 WITH nextTasks as (
     SELECT id, status, started_at
@@ -181,8 +175,8 @@ WITH nextTasks as (
         run_at <= :now AND
         attempts < max_attempts AND
         (status = 'queued' OR
-          ((status = 'running' OR status = 'retrying') AND
-            (:now > (locked_at + INTERVAL '1 second' * timeout))))
+          (status = 'running' AND (:now > (locked_at + INTERVAL '1 second' * timeout))) OR
+          (status = 'retrying' AND (:now > (locked_at + INTERVAL '1 second' * retry_delay))))
     ORDER BY
         CASE WHEN priority = 'critical'
              THEN 1
@@ -231,12 +225,8 @@ class Taskflow(object):
     def get_workflow(self, workflow_name):
         return self._workflows[workflow_name]
 
-    ## TODO: merge concepts of refresh and sync_db ?
-
-    def get_fresh_workflows(self, session):
-        for workflow_name in self._workflows:
-            self._workflows[workflow_name].refresh(session)
-        return list(self._workflows.values())
+    def get_workflows(self):
+        return self._workflows.values()
 
     def add_task(self, task):
         if task.workflow != None:
@@ -255,10 +245,8 @@ class Taskflow(object):
             if task:
                 return task
 
-    def get_fresh_tasks(self, session):
-        for task_name in self._tasks:
-            self._tasks[task_name].refresh(session)
-        return list(self._tasks.values())
+    def get_tasks(self):
+        return self._tasks.values()
 
     def add_push_worker(self, push_worker):
         self._push_workers[push_worker.push_type] = push_worker
@@ -344,6 +332,7 @@ class SchedulableInstance(BaseModel):
     def complete(self, session, status, now=None):
         if now == None:
             now = datetime.utcnow()
+
         self.status = status
         self.ended_at = now
 
@@ -353,8 +342,12 @@ class SchedulableInstance(BaseModel):
         self.complete(session, 'success', now=now)
 
     def fail(self, session, now=None):
+        if now == None:
+            now = datetime.utcnow()
+
         if isinstance(self, TaskInstance) and self.attempts < self.max_attempts:
             self.status = 'retrying'
+            self.locked_at = now
             session.commit()
         else:
             self.complete(session, 'failed', now=now)
@@ -399,6 +392,7 @@ class TaskInstance(SchedulableInstance):
     attempts = Column(Integer, nullable=False, default=0)
     max_attempts = Column(Integer, nullable=False, default=1)
     timeout = Column(Integer, nullable=False)
+    retry_delay = Column(Integer, nullable=False)
 
     def __repr__(self):
         return '<TaskInstance id: {} task: {} workflow_instance: {} status: {}>'.format(

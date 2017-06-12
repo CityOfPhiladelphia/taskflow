@@ -52,8 +52,6 @@ def test_push(dbsession, monkeypatch):
     dbsession.add(task_instance)
     dbsession.commit()
 
-    taskflow.get_fresh_tasks(dbsession)
-
     pusher = Pusher(taskflow, now_override=datetime(2017, 6, 4, 6))
     pusher.run(dbsession)
 
@@ -97,8 +95,6 @@ def test_fail(dbsession, monkeypatch):
     task_instance = task1.get_new_instance(run_at=datetime(2017, 6, 4, 6))
     dbsession.add(task_instance)
     dbsession.commit()
-
-    taskflow.get_fresh_tasks(dbsession)
 
     pusher = Pusher(taskflow, now_override=datetime(2017, 6, 4, 6))
     pusher.run(dbsession)

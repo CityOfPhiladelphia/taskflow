@@ -130,10 +130,10 @@ class Scheduler(object):
 
         if definition_class == Workflow:
             instance_class = WorkflowInstance
-            fresh_recurring_items = self.taskflow.get_fresh_workflows(session)
+            recurring_items = self.taskflow.get_workflows()
         elif definition_class == Task:
             instance_class = TaskInstance
-            fresh_recurring_items = self.taskflow.get_fresh_tasks(session)
+            recurring_items = self.taskflow.get_tasks()
         else:
             raise Exception('definition_class must be Workflow or Task')
 
@@ -141,7 +141,7 @@ class Scheduler(object):
 
         ## get Workflows or Tasks from Taskflow instance
         recurring_items = filter(lambda item: item.active == True and item.schedule != None,
-                                 fresh_recurring_items)
+                                 recurring_items)
 
         for item in recurring_items:
             self.logger.info('Scheduling recurring %s: %s', definition_class.__name__.lower(), item.name)
@@ -194,7 +194,7 @@ class Scheduler(object):
             .all() ## TODO: paginate?
 
         for workflow_instance in queued_running_workflow_instances:
-            self.logger.info('Checking %s - %s for advancment', workflow_instance.workflow_name, workflow_instance.id)
+            self.logger.info('Checking %s - %s for advancement', workflow_instance.workflow_name, workflow_instance.id)
             try:
                 if workflow_instance.status == 'queued':
                     workflow_instance.status = 'running'
@@ -208,8 +208,8 @@ class Scheduler(object):
                     if not self.dry_run:
                         session.commit()
             except Exception:
-                ## TODO: rollback?
-                self.logger.exception('Exception scheduling %s', item.name)
+                session.rollback()
+                self.logger.exception('Exception scheduling %s', workflow_instance.workflow_name)
 
     def fail_timedout_task_instances(self, session):
         ## TODO: return info using RETURNING and log
