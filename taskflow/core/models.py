@@ -55,8 +55,12 @@ class Schedulable(object):
 
     def refresh(self, session):
         recurring_class = self.__class__
-        session.merge(self)
-        instance = session.query(recurring_class).filter(recurring_class.name == self.name).one()
+        instance = session.query(recurring_class).filter(recurring_class.name == self.name).one_or_none()
+        if not instance:
+            session.add(self)
+            session.commit()
+        else:
+            session.merge(self)
         self.active = instance.active
 
     def next_run(self, base_time=None):
@@ -167,7 +171,7 @@ class Task(Schedulable, BaseModel):
 
     def on_kill(self):
         pass
-
+## TODO: !!! add retry_wait
 pull_sql = """
 WITH nextTasks as (
     SELECT id, status, started_at
@@ -175,8 +179,9 @@ WITH nextTasks as (
     WHERE
         {}
         run_at <= :now AND
+        attempts < max_attempts AND
         (status = 'queued' OR
-          ((status = 'running' OR (status = 'retrying' AND attempts < max_attempts)) AND
+          ((status = 'running' OR status = 'retrying') AND
             (:now > (locked_at + INTERVAL '1 second' * timeout))))
     ORDER BY
         CASE WHEN priority = 'critical'
@@ -225,6 +230,8 @@ class Taskflow(object):
 
     def get_workflow(self, workflow_name):
         return self._workflows[workflow_name]
+
+    ## TODO: merge concepts of refresh and sync_db ?
 
     def get_fresh_workflows(self, session):
         for workflow_name in self._workflows:
@@ -339,13 +346,18 @@ class SchedulableInstance(BaseModel):
             now = datetime.utcnow()
         self.status = status
         self.ended_at = now
+
         session.commit()
 
     def succeed(self, session, now=None):
         self.complete(session, 'success', now=now)
 
     def fail(self, session, now=None):
-        self.complete(session, 'failed', now=now)
+        if isinstance(self, TaskInstance) and self.attempts < self.max_attempts:
+            self.status = 'retrying'
+            session.commit()
+        else:
+            self.complete(session, 'failed', now=now)
 
 class WorkflowInstance(SchedulableInstance):
     __tablename__ = 'workflow_instances'

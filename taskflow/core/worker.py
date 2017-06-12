@@ -20,6 +20,9 @@ class Worker(object):
     def execute(self, session, task_instance):
         try:
             task = self.taskflow.get_task(task_instance.task_name)
+            if not task:
+                raise Exception('Task `{}` does not exist'.format(task_instance.task_name))
+
             self.current_task = task
             task.execute(task_instance)
         except Exception:

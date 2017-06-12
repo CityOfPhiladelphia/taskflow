@@ -100,6 +100,9 @@ def scheduler(ctx, sql_alchemy_connection, num_runs, dry_run, now_override, slee
     pusher = Pusher(taskflow, dry_run=dry_run, now_override=now_override)
 
     for n in range(0, num_runs):
+        if n > 0 and sleep > 0:
+            time.sleep(sleep)
+
         session = Session()
         taskflow.sync_db(session)
 
@@ -107,7 +110,6 @@ def scheduler(ctx, sql_alchemy_connection, num_runs, dry_run, now_override, slee
         pusher.run(session)
 
         session.close()
-        time.sleep(sleep)
 
 @main.command()
 @click.option('--sql-alchemy-connection')
@@ -140,6 +142,9 @@ def pull_worker(ctx, sql_alchemy_connection, num_runs, dry_run, now_override, sl
         worker_id = get_worker_id()
 
     for n in range(0, num_runs):
+        if n > 0 and sleep > 0:
+            time.sleep(sleep)
+
         session = Session()
         
         task_instances = taskflow.pull(session, worker_id, task_names=task_names, now=now_override)
@@ -148,9 +153,6 @@ def pull_worker(ctx, sql_alchemy_connection, num_runs, dry_run, now_override, sl
             worker.execute(session, task_instances[0])
 
         session.close()
-
-        if sleep > 0:
-            time.sleep(sleep)
 
 @main.command()
 @click.argument('task_instance_id', type=int)
