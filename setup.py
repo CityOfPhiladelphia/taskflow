@@ -12,6 +12,7 @@ setup(
         'taskflow.tasks'
     ],
     install_requires=[
+        'alembic==0.9.2',
         'boto3==1.4.4',
         'click==6.7',
         'croniter==0.3.17',
