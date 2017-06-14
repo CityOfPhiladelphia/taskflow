@@ -24,6 +24,8 @@ def tasks(dbsession):
 
 ## TODO: test multiple works pulling, one wins
 
+## TODO: test running timeout
+
 ## TODO: test task inactive
 
 ## TODO: test touching / relocking?
@@ -31,6 +33,8 @@ def tasks(dbsession):
 ## TODO: test retry and succeed
 
 ## TODO: test retry and fail
+
+## TODO: test retry delay
 
 ## TODO: queue a task with unique string
 
