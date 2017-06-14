@@ -154,12 +154,13 @@ class Scheduler(object):
                 filters += (instance_class.scheduled == True,)
 
                 ## Get the most recent instance of the recurring item
-                ## TODO: order by heartbeat instead ?
+                ## TODO: order by locked_at instead ?
                 most_recent_instance = session.query(instance_class)\
                                         .filter(*filters)\
                                         .order_by(instance_class.run_at.desc())\
                                         .first()
 
+                ## TODO: can there be a running and queued instance ?
                 if not most_recent_instance or most_recent_instance.status in ['success','failed']:
                     if not most_recent_instance: ## first run
                         next_run = item.next_run(base_time=now)
@@ -179,7 +180,7 @@ class Scheduler(object):
                     else:
                         self.queue_task(session, item, next_run)
             except Exception:
-                ## TODO: rollback?
+                session.rollback()
                 self.logger.exception('Exception scheduling %s', item.name)
 
     def advance_workflows_forward(self, session):

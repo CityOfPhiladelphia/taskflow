@@ -78,11 +78,15 @@ class Workflow(Schedulable, BaseModel):
     def __repr__(self):
         return '<Workflow name: {} active: {}>'.format(self.name, self.active)
 
+    ## TODO: remove deactivated tasks from graph ?
     def get_dependencies_graph(self):
         graph = dict()
         for task in self._tasks:
             graph[task.name] = task._dependencies
         return graph
+
+    def get_tasks(self):
+        return self._tasks
 
     def get_task(self, task_name):
         for task in self._tasks:
@@ -100,6 +104,8 @@ class Workflow(Schedulable, BaseModel):
 class Task(Schedulable, BaseModel):
     __tablename__ = 'tasks'
 
+    workflow_name = Column(String, ForeignKey('workflows.name'))
+
     def __init__(
         self,
         workflow=None,
@@ -116,6 +122,7 @@ class Task(Schedulable, BaseModel):
             if self in self.workflow._tasks:
                 raise Exception('`{}` already added to workflow `{}`'.format(self.name, self.workflow.name))
             self.workflow._tasks.add(self)
+            self.workflow_name = workflow.name
 
         self.retries = retries
         self.timeout = timeout
@@ -254,21 +261,29 @@ class Taskflow(object):
     def get_push_worker(self, push_type):
         return self._push_workers[push_type]
 
+    def sync_tasks(self, session, tasks):
+        for task in tasks:
+            existing = session.query(Task).filter(Task.name == task.name).one_or_none()
+            if existing:
+                task.active = existing.active
+                session.merge(task)
+            else:
+                session.add(task)
+
     def sync_db(self, session):
         for workflow_name in self._workflows:
+            workflow = self._workflows[workflow_name]
             existing = session.query(Workflow).filter(Workflow.name == workflow_name).one_or_none()
             if existing:
-                self._workflows[workflow_name].active = existing.active
-                session.merge(self._workflows[workflow_name])
+                workflow.active = existing.active
+                session.merge(workflow)
             else:
-                session.add(self._workflows[workflow_name])
-        for task_name in self._tasks:
-            existing = session.query(Task).filter(Task.name == task_name).one_or_none()
-            if existing:
-                self._tasks[task_name].active = existing.active
-                session.merge(self._tasks[task_name])
-            else:
-                session.add(self._tasks[task_name])
+                session.add(workflow)
+
+            self.sync_tasks(session, workflow.get_tasks())
+
+        self.sync_tasks(session, self._tasks.values())
+
         session.commit()
 
     def pull(self, session, worker_id, task_names=None, max_tasks=1, now=None, push=False):

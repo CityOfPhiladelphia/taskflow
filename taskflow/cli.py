@@ -13,7 +13,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from taskflow import Scheduler, Pusher, Taskflow, Worker, TaskInstance
-from taskflow.core.models import BaseModel
+from taskflow import db
 
 def get_logging():
     logger = logging.getLogger()
@@ -73,8 +73,16 @@ def api_server(ctx):
 @click.pass_context
 def init_db(ctx, sql_alchemy_connection):
     connection_string = sql_alchemy_connection or os.getenv('SQL_ALCHEMY_CONNECTION')
-    engine = create_engine(connection_string)
-    BaseModel.metadata.create_all(engine)
+
+    db.init_db(connection_string)
+
+@main.command()
+@click.option('--sql-alchemy-connection')
+@click.pass_context
+def migrate_db(ctx, sql_alchemy_connection):
+    connection_string = sql_alchemy_connection or os.getenv('SQL_ALCHEMY_CONNECTION')
+
+    db.migrate_db(connection_string)
 
 @main.command()
 @click.option('--sql-alchemy-connection')
@@ -98,6 +106,8 @@ def scheduler(ctx, sql_alchemy_connection, num_runs, dry_run, now_override, slee
 
     scheduler = Scheduler(taskflow, dry_run=dry_run, now_override=now_override)
     pusher = Pusher(taskflow, dry_run=dry_run, now_override=now_override)
+
+    ## TODO: fix interrupt
 
     for n in range(0, num_runs):
         if n > 0 and sleep > 0:
@@ -173,6 +183,10 @@ def run_task(ctx, task_instance_id, sql_alchemy_connection, worker_id):
     taskflow.sync_db(session)
 
     task_instance = session.query(TaskInstance).get(task_instance_id)
+
+    task_instance.worker_id = worker_id
+    task_instance.locked_at = datetime.utcnow()
+    session.commit()
 
     worker = Worker(taskflow)
     success = worker.execute(session, task_instance)
