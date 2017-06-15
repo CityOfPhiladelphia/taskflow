@@ -133,5 +133,5 @@ class AWSBatchPushWorker(PushWorker):
                 if not dry_run:
                     session.commit()
             except Exception:
-                session.rollback()
                 self.logger.exception('Exception submitting %s %s', task_instance.task_name, task_instance.id)
+                session.rollback()

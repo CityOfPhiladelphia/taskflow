@@ -32,6 +32,7 @@ class Scheduler(object):
 
         if not self.dry_run:
             session.add(task_instance)
+            session.commit()
 
     def queue_workflow_task(self, session, workflow, task_name, workflow_instance, run_at=None):
         if run_at == None:
@@ -180,8 +181,8 @@ class Scheduler(object):
                     else:
                         self.queue_task(session, item, next_run)
             except Exception:
-                session.rollback()
                 self.logger.exception('Exception scheduling %s', item.name)
+                session.rollback()
 
     def advance_workflows_forward(self, session):
         """Moves queued and running workflows forward"""
@@ -209,8 +210,8 @@ class Scheduler(object):
                     if not self.dry_run:
                         session.commit()
             except Exception:
-                session.rollback()
                 self.logger.exception('Exception scheduling %s', workflow_instance.workflow_name)
+                session.rollback()
 
     def fail_timedout_task_instances(self, session):
         ## TODO: return info using RETURNING and log
