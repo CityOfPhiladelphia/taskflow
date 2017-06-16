@@ -115,10 +115,12 @@ def scheduler(ctx, sql_alchemy_connection, num_runs, dry_run, now_override, slee
 
         session = Session()
         taskflow.sync_db(session)
-
         scheduler.run(session)
-        pusher.run(session)
+        session.close()
 
+        session = Session()
+        taskflow.sync_db(session)
+        pusher.run(session)
         session.close()
 
 @main.command()

@@ -114,6 +114,7 @@ class AWSBatchPushWorker(PushWorker):
                     })
 
                 job_name = self.get_job_name(workflow, task, task_instance)
+                job_name = job_name[-128:] ## AWS Batch max job name is 128 characters
 
                 self.logger.info('Submitting job: %s %s %s', job_name, job_queue, job_definition)
 

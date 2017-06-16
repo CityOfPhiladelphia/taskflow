@@ -50,6 +50,9 @@ def test_schedule_recurring_task(dbsession, tasks):
 
     task_instances = dbsession.query(TaskInstance).all()
 
+    ## TODO: how was this commited before session.commit() was added queue_task ?
+    ## TODO: ^ test a future run_at
+
     assert len(task_instances) == 2
     for task_instance in task_instances:
         assert task_instance.status == 'queued'
