@@ -26,7 +26,8 @@ class Scheduler(object):
             run_at = self.now()
 
         task_instance = task.get_new_instance(scheduled=True,
-                                              run_at=run_at)
+                                              run_at=run_at,
+                                              unique='scheduled_' + run_at.isoformat())
 
         self.logger.info('Queuing task: %s %s', task.name, run_at)
 
@@ -38,15 +39,14 @@ class Scheduler(object):
         if run_at == None:
             run_at = self.now()
 
-        ## TODO: use TaskInstance.unique?
-
         task = workflow.get_task(task_name)
 
         task_instance = task.get_new_instance(
             scheduled=True,
             run_at=run_at,
             workflow_instance_id=workflow_instance.id,
-            priority=workflow_instance.priority or workflow.default_priority)
+            priority=workflow_instance.priority or workflow.default_priority,
+            unique='scheduled_' + run_at.isoformat())
 
         self.logger.info('Queuing workflow task: %s %s %s', workflow.name, task.name, run_at)
         
@@ -101,18 +101,21 @@ class Scheduler(object):
         if failed:
             workflow_instance.status = 'failed'
             workflow_instance.ended_at = self.now()
+            self.logger.info('Workflow {} - {} failed'.format(workflow_instance.workflow_name, workflow_instance.id))
             if not self.dry_run:
                 session.commit()
         elif total_complete_steps == len(dep_graph):
             workflow_instance.status = 'success'
             workflow_instance.ended_at = self.now()
+            self.logger.info('Workflow {} - {} succeeded'.format(workflow_instance.workflow_name, workflow_instance.id))
             if not self.dry_run:
                 session.commit()
 
     def queue_workflow(self, session, workflow, run_at):
         workflow_instance = workflow.get_new_instance(
             scheduled=True,
-            run_at=run_at)
+            run_at=run_at,
+            unique='scheduled_' + run_at.isoformat())
 
         self.logger.info('Queuing workflow: %s', workflow.name)
 
@@ -155,7 +158,7 @@ class Scheduler(object):
                 filters += (instance_class.scheduled == True,)
 
                 ## Get the most recent instance of the recurring item
-                ## TODO: order by locked_at instead ?
+                ## TODO: order by started_at instead ?
                 most_recent_instance = session.query(instance_class)\
                                         .filter(*filters)\
                                         .order_by(instance_class.run_at.desc())\
@@ -201,6 +204,7 @@ class Scheduler(object):
                 if workflow_instance.status == 'queued':
                     workflow_instance.status = 'running'
                     workflow_instance.started_at = self.now()
+                    self.logger.info('Starting workflow {} - {} failed'.format(workflow_instance.workflow_name, workflow_instance.id))
                     self.queue_workflow_tasks(session, workflow_instance)
                     if not self.dry_run:
                         session.commit()
@@ -218,12 +222,12 @@ class Scheduler(object):
         if not self.dry_run:
             session.execute(
                 "UPDATE task_instances SET status = 'failed', ended_at = :now " +
-                "WHERE status in ('running','retrying') AND " + 
+                "WHERE status in ('running','retry') AND " + 
                 "(:now > (locked_at + INTERVAL '1 second' * timeout)) AND " +
                 "attempts >= max_attempts", {'now': self.now()})
 
     def run(self, session):
-        ## TODO: what happens when a schedule changes?
+        ## TODO: what happens when a schedule changes? - Looks like it has to what until the current future runs
 
         self.logger.info('*** Starting Scheduler Run ***')
 

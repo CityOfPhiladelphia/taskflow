@@ -25,7 +25,7 @@ class Pusher(object):
     def sync_task_states(self, session):
         ## TODO: paginate?
         task_instances = session.query(TaskInstance)\
-            .filter(TaskInstance.push == True, TaskInstance.status.in_(['pushed','running','retrying'])).all()
+            .filter(TaskInstance.push == True, TaskInstance.status.in_(['pushed','running'])).all()
 
         for push_destination, task_instances in groupby(task_instances, self.get_push_destination):
             self.logger.info('Syncing states with %s', push_destination)

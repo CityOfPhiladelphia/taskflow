@@ -14,6 +14,7 @@ from sqlalchemy import (
     ForeignKey,
     MetaData
 )
+from sqlalchemy.event import listens_for
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from croniter import croniter
@@ -93,13 +94,14 @@ class Workflow(Schedulable, BaseModel):
             if task.name == task_name:
                 return task
 
-    def get_new_instance(self, scheduled=False, status='queued', run_at=None, priority=None):
+    def get_new_instance(self, scheduled=False, status='queued', run_at=None, priority=None, unique=None):
         return WorkflowInstance(
             workflow_name=self.name,
             scheduled=scheduled,
             run_at=run_at or datetime.utcnow(),
             status=status,
-            priority=priority or self.default_priority)
+            priority=priority or self.default_priority,
+            unique=unique)
 
 class Task(Schedulable, BaseModel):
     __tablename__ = 'tasks'
@@ -154,7 +156,8 @@ class Task(Schedulable, BaseModel):
                          priority=None,
                          max_attempts=None,
                          timeout=None,
-                         retry_delay=None):
+                         retry_delay=None,
+                         unique=None):
         return TaskInstance(
             task_name=self.name,
             workflow_instance_id=workflow_instance_id,
@@ -165,7 +168,8 @@ class Task(Schedulable, BaseModel):
             run_at=run_at or datetime.utcnow(),
             max_attempts=max_attempts or (self.retries + 1),
             timeout=timeout or self.timeout,
-            retry_delay=retry_delay or self.retry_delay)
+            retry_delay=retry_delay or self.retry_delay,
+            unique=unique)
 
     def execute(self, task_instance):
         raise NotImplementedError()
@@ -183,7 +187,7 @@ WITH nextTasks as (
         attempts < max_attempts AND
         (status = 'queued' OR
           (status = 'running' AND (:now > (locked_at + INTERVAL '1 second' * timeout))) OR
-          (status = 'retrying' AND (:now > (locked_at + INTERVAL '1 second' * retry_delay))))
+          (status = 'retry' AND (:now > (locked_at + INTERVAL '1 second' * retry_delay))))
     ORDER BY
         CASE WHEN priority = 'critical'
              THEN 1
@@ -199,11 +203,7 @@ WITH nextTasks as (
     FOR UPDATE SKIP LOCKED
 )
 UPDATE task_instances SET
-    status = 
-        (CASE WHEN nextTasks.status = 'running'
-              THEN 'retrying'
-              ELSE 'running'
-         END)::taskflow_statuses,
+    status = 'running'::taskflow_statuses,
     worker_id = :worker_id,
     locked_at = :now,
     started_at = COALESCE(nextTasks.started_at, :now),
@@ -323,7 +323,7 @@ class SchedulableInstance(BaseModel):
     status = Column(Enum('queued',
                          'pushed',
                          'running',
-                         'retrying',
+                         'retry',
                          'dequeued',
                          'failed',
                          'success',
@@ -361,11 +361,15 @@ class SchedulableInstance(BaseModel):
             now = datetime.utcnow()
 
         if isinstance(self, TaskInstance) and self.attempts < self.max_attempts:
-            self.status = 'retrying'
+            self.status = 'retry'
             self.locked_at = now
             session.commit()
         else:
             self.complete(session, 'failed', now=now)
+
+@listens_for(SchedulableInstance, 'instrument_class', propagate=True)
+def receive_mapper_configured(mapper, class_):
+    class_.build_indexes()
 
 class WorkflowInstance(SchedulableInstance):
     __tablename__ = 'workflow_instances'
@@ -380,19 +384,14 @@ class WorkflowInstance(SchedulableInstance):
                     self.run_at,
                     self.status)
 
-    # @declared_attr
-    # def __table_args__(cls):
-    #     print(cls.__name__)
-    #     print(cls.workflow_name)
-    #     print(cls.unique)
-    #     print(cls.status)
-    #     return (
-    #         Index('index_unique_schedulable',
-    #               cls.workflow_name,
-    #               cls.unique,
-    #               unique=True,
-    #               postgresql_where=
-    #                 cls.status.in_(['queued','pushed','running','retrying'])),)
+    @classmethod
+    def build_indexes(cls):
+        Index('index_unique_workflow',
+                  cls.workflow_name,
+                  cls.unique,
+                  unique=True,
+                  postgresql_where=
+                    cls.status.in_(['queued','pushed','running','retry']))
 
 class TaskInstance(SchedulableInstance):
     __tablename__ = 'task_instances'
@@ -416,13 +415,14 @@ class TaskInstance(SchedulableInstance):
                     self.workflow_instance_id,
                     self.status)
 
-    # __table_args__ = (
-    #     Index('unique_schedulable',
-    #           task_name,
-    #           SchedulableInstance.unique,
-    #           unique=True,
-    #           postgresql_where=(
-    #             SchedulableInstance.status.in_(['queued','pushed','running','retrying']))),)
+    @classmethod
+    def build_indexes(cls):
+        Index('index_unique_task',
+                  cls.task_name,
+                  cls.unique,
+                  unique=True,
+                  postgresql_where=
+                    cls.status.in_(['queued','pushed','running','retry']))
 
 class TaskflowEvent(BaseModel):
     __tablename__ = 'taskflow_events'

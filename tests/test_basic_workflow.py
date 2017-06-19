@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from taskflow import Scheduler, Taskflow, Workflow, WorkflowInstance, Task, TaskInstance
 from shared_fixtures import *
@@ -48,6 +49,32 @@ def test_schedule_recurring_workflow(dbsession, workflows):
 
     task_instances = dbsession.query(TaskInstance).all()
     assert len(task_instances) == 0
+
+def test_unique_workflow(dbsession):
+    workflow1 = Workflow(name='workflow1', active=True)
+    dbsession.add(workflow1)
+    dbsession.commit()
+
+    workflow_instance = WorkflowInstance(
+        workflow_name='workflow1',
+        scheduled=False,
+        run_at=datetime(2017, 6, 3, 6),
+        status='queued',
+        priority='normal',
+        unique='foo')
+    dbsession.add(workflow_instance)
+    dbsession.commit()
+
+    with pytest.raises(IntegrityError):
+        workflow_instance = WorkflowInstance(
+            workflow_name='workflow1',
+            scheduled=False,
+            run_at=datetime(2017, 6, 3, 6),
+            status='queued',
+            priority='normal',
+            unique='foo')
+        dbsession.add(workflow_instance)
+        dbsession.commit()
 
 def test_workflow_starts(dbsession, workflows):
     now = datetime(2017, 6, 3, 6, 12)
