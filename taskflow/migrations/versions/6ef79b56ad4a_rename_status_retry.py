@@ -23,9 +23,14 @@ def upgrade():
         ALTER TYPE taskflow_statuses RENAME TO taskflow_statuses_old;
         CREATE TYPE taskflow_statuses AS ENUM('queued','pushed','running','retry','dequeued','failed','success');
         CREATE TYPE taskflow_statuses_inter AS ENUM('queued','pushed','running','retry','retrying','dequeued','failed','success');
+        
+        ALTER TABLE workflow_instances ALTER COLUMN status TYPE taskflow_statuses_inter USING status::text::taskflow_statuses_inter;
+        UPDATE workflow_instances SET status = 'retry' WHERE status = 'retrying';
+        ALTER TABLE workflow_instances ALTER COLUMN status TYPE taskflow_statuses USING status::text::taskflow_statuses;
         ALTER TABLE task_instances ALTER COLUMN status TYPE taskflow_statuses_inter USING status::text::taskflow_statuses_inter;
         UPDATE task_instances SET status = 'retry' WHERE status = 'retrying';
         ALTER TABLE task_instances ALTER COLUMN status TYPE taskflow_statuses USING status::text::taskflow_statuses;
+
         DROP TYPE taskflow_statuses_old;
         DROP TYPE taskflow_statuses_inter;
         COMMIT;
@@ -37,9 +42,14 @@ def downgrade():
         ALTER TYPE taskflow_statuses RENAME TO taskflow_statuses_old;
         CREATE TYPE taskflow_statuses AS ENUM('queued','pushed','running','retrying','dequeued','failed','success');
         CREATE TYPE taskflow_statuses_inter AS ENUM('queued','pushed','running','retry','retrying','dequeued','failed','success');
+        
+        ALTER TABLE workflow_instances ALTER COLUMN status TYPE taskflow_statuses_inter USING status::text::taskflow_statuses_inter;
+        UPDATE workflow_instances SET status = 'retrying' WHERE status = 'retry';
+        ALTER TABLE workflow_instances ALTER COLUMN status TYPE taskflow_statuses USING status::text::taskflow_statuses;
         ALTER TABLE task_instances ALTER COLUMN status TYPE taskflow_statuses_inter USING status::text::taskflow_statuses_inter;
         UPDATE task_instances SET status = 'retrying' WHERE status = 'retry';
         ALTER TABLE task_instances ALTER COLUMN status TYPE taskflow_statuses USING status::text::taskflow_statuses;
+
         DROP TYPE taskflow_statuses_old;
         DROP TYPE taskflow_statuses_inter;
         COMMIT;
