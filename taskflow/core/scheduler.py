@@ -241,6 +241,8 @@ class Scheduler(object):
 
         self.advance_workflows_forward(session)
 
+        ## TODO: start / advance non recurring workflows
+
 
         ##### Task scheduling - tasks that do not belong to a workflow
 

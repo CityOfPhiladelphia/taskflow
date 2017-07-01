@@ -6,14 +6,18 @@ import json
 import os
 import socket
 import sys
+import multiprocessing
 
 import requests
 import click
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+import gunicorn.app.base
+from gunicorn.six import iteritems
 
 from taskflow import Scheduler, Pusher, Taskflow, Worker, TaskInstance
 from taskflow import db
+from taskflow.rest.app import create_app
 
 def get_logging():
     logger = logging.getLogger()
@@ -55,6 +59,25 @@ def get_worker_id():
     else:
         return '-'.join(worker_components)
 
+def number_of_workers():
+    return (multiprocessing.cpu_count() * 2) + 1
+
+class StandaloneApplication(gunicorn.app.base.BaseApplication):
+
+    def __init__(self, app, options=None):
+        self.options = options or {}
+        self.application = app
+        super(StandaloneApplication, self).__init__()
+
+    def load_config(self):
+        config = dict([(key, value) for key, value in iteritems(self.options)
+                       if key in self.cfg.settings and value is not None])
+        for key, value in iteritems(config):
+            self.cfg.set(key.lower(), value)
+
+    def load(self):
+        return self.application
+
 @click.group()
 @click.option('--taskflow')
 @click.pass_context
@@ -64,9 +87,33 @@ def main(ctx, taskflow):
         ctx.obj['taskflow'] = taskflow
 
 @main.command()
+@click.option('--sql-alchemy-connection')
+@click.option('--bind-host', default='0.0.0.0')
+@click.option('--bind-port', default='5000', type=int)
+@click.option('--prod', is_flag=True, default=False)
 @click.pass_context
-def api_server(ctx):
-    pass
+def api_server(ctx, sql_alchemy_connection, bind_host, bind_port, prod):
+    connection_string = sql_alchemy_connection or os.getenv('SQL_ALCHEMY_CONNECTION')
+
+    taskflow = ctx.obj['taskflow']
+
+    engine = create_engine(connection_string)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    taskflow.sync_db(session, read_only=True)
+    session.close()
+
+    app = create_app(taskflow, connection_string=connection_string)
+
+    if prod:
+        ## TODO: use async workers?
+        options = {
+            'bind': '{}:{}'.format(bind_host, bind_port),
+            'workers': number_of_workers(),
+        }
+        StandaloneApplication(app, options).run()
+    else:
+        app.run(host=bind_host, port=bind_port)
 
 @main.command()
 @click.option('--sql-alchemy-connection')

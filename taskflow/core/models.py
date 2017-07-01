@@ -14,10 +14,13 @@ from sqlalchemy import (
     ForeignKey,
     MetaData
 )
+from sqlalchemy.orm import relationship
 from sqlalchemy.event import listens_for
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base, declared_attr
 from croniter import croniter
+from restful_ben.auth import UserAuthMixin
+from flask_login import UserMixin
 
 metadata = MetaData()
 BaseModel = declarative_base(metadata=metadata)
@@ -270,7 +273,7 @@ class Taskflow(object):
             else:
                 session.add(task)
 
-    def sync_db(self, session):
+    def sync_db(self, session, read_only=False):
         for workflow_name in self._workflows:
             workflow = self._workflows[workflow_name]
             existing = session.query(Workflow).filter(Workflow.name == workflow_name).one_or_none()
@@ -284,7 +287,8 @@ class Taskflow(object):
 
         self.sync_tasks(session, self._tasks.values())
 
-        session.commit()
+        if not read_only:
+            session.commit()
 
     def pull(self, session, worker_id, task_names=None, max_tasks=1, now=None, push=False):
         if now == None:
@@ -316,8 +320,8 @@ class SchedulableInstance(BaseModel):
     __abstract__ = True
 
     id = Column(BigInteger, primary_key=True)
-    scheduled = Column(Boolean, nullable=False)
-    run_at = Column(DateTime, nullable=False)
+    scheduled = Column(Boolean, nullable=False, default=False)
+    run_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     started_at = Column(DateTime)
     ended_at = Column(DateTime)
     status = Column(Enum('queued',
@@ -328,13 +332,15 @@ class SchedulableInstance(BaseModel):
                          'failed',
                          'success',
                          name='taskflow_statuses'),
-                    nullable=False)
+                    nullable=False,
+                    default='queued')
     priority = Column(Enum('critical',
                            'high',
                            'normal',
                            'low',
                            name='taskflow_priorities'),
-                      nullable=False)
+                      nullable=False,
+                      default='normal')
     unique = Column(String)
     created_at = Column(DateTime,
                         nullable=False,
@@ -376,6 +382,7 @@ class WorkflowInstance(SchedulableInstance):
 
     workflow_name = Column(String, nullable=False)
     params = Column(JSONB)
+    task_instances = relationship('TaskInstance', backref='workflow', passive_deletes=True)
 
     def __repr__(self):
         return '<WorkflowInstance id: {} workflow: {} run_at: {} status: {}>'.format(
@@ -397,7 +404,7 @@ class TaskInstance(SchedulableInstance):
     __tablename__ = 'task_instances'
 
     task_name = Column(String, nullable=False)
-    workflow_instance_id = Column(BigInteger, ForeignKey('workflow_instances.id'))
+    workflow_instance_id = Column(BigInteger, ForeignKey('workflow_instances.id', ondelete='CASCADE'))
     push = Column(Boolean, nullable=False)
     locked_at = Column(DateTime) ## TODO: should workflow instaces have locked_at as well ?
     worker_id = Column(String)
@@ -433,3 +440,29 @@ class TaskflowEvent(BaseModel):
     timestamp = Column(DateTime, nullable=False)
     event = Column(String, nullable=False)
     message = Column(String)
+
+class User(UserAuthMixin, UserMixin, BaseModel):
+    __tablename__ = 'users'
+
+    id = Column(Integer, primary_key=True)
+    active = Column(Boolean, nullable=False)
+    email = Column(String)
+    role = Column(Enum('normal','admin', name='user_roles'), nullable=False)
+    created_at = Column(DateTime,
+                        nullable=False,
+                        server_default=func.now())
+    updated_at = Column(DateTime,
+                        nullable=False,
+                        server_default=func.now(),
+                        onupdate=func.now())
+
+    @property
+    def is_active(self):
+        return self.active
+
+    def __repr__(self):
+        return '<User id: {} active: {} username: {} email: {}>'.format(self.id, \
+                                                                        self.active, \
+                                                                        self.username, \
+                                                                        self.email)
+

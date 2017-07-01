@@ -8,31 +8,6 @@ from shared_fixtures import *
 
 get_logging()
 
-@pytest.fixture
-def workflows(dbsession):
-    workflow1 = Workflow(name='workflow1', active=True, schedule='0 6 * * *')
-    workflow2 = Workflow(name='workflow2', active=True)
-    dbsession.add(workflow1)
-    dbsession.add(workflow2)
-    dbsession.commit()
-
-    task1 = Task(workflow=workflow1, name='task1', active=True)
-    task2 = Task(workflow=workflow1, name='task2', active=True)
-    task3 = Task(workflow=workflow1, name='task3', active=True)
-    task4 = Task(workflow=workflow1, name='task4', active=True)
-
-    task3.depends_on(task1)
-    task3.depends_on(task2)
-    task4.depends_on(task3)
-
-    dbsession.add(task1)
-    dbsession.add(task2)
-    dbsession.add(task3)
-    dbsession.add(task4)
-
-    dbsession.commit()
-    return [workflow1, workflow2]
-
 ## TODO: test dry run
 
 def test_schedule_recurring_workflow(dbsession, workflows):
