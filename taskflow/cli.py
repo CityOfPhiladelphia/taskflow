@@ -90,9 +90,10 @@ def main(ctx, taskflow):
 @click.option('--sql-alchemy-connection')
 @click.option('--bind-host', default='0.0.0.0')
 @click.option('--bind-port', default='5000', type=int)
+@click.option('--worker-class', default='sync')
 @click.option('--prod', is_flag=True, default=False)
 @click.pass_context
-def api_server(ctx, sql_alchemy_connection, bind_host, bind_port, prod):
+def api_server(ctx, sql_alchemy_connection, bind_host, bind_port, worker_class, prod):
     connection_string = sql_alchemy_connection or os.getenv('SQL_ALCHEMY_CONNECTION')
 
     taskflow = ctx.obj['taskflow']
@@ -106,10 +107,10 @@ def api_server(ctx, sql_alchemy_connection, bind_host, bind_port, prod):
     app = create_app(taskflow, connection_string=connection_string)
 
     if prod:
-        ## TODO: use async workers?
         options = {
             'bind': '{}:{}'.format(bind_host, bind_port),
             'workers': number_of_workers(),
+            'worker_class': worker_class
         }
         StandaloneApplication(app, options).run()
     else:

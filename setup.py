@@ -17,6 +17,7 @@ setup(
         'Flask-Cors==3.0.2',
         'Flask-RESTful==0.3.6',
         'Flask-SQLAlchemy==2.2',
+        'gunicorn==19.7.1',
         'marshmallow==2.13.5',
         'psycopg2==2.7.1',
         'pytest==3.1.1',
