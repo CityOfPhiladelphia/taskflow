@@ -13,7 +13,7 @@ def create_app(taskflow_instance, connection_string=None, secret_key=None):
     app = flask.Flask(__name__)
     app.config['DEBUG'] = os.getenv('DEBUG', False)
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['SQLALCHEMY_DATABASE_URI'] = connection_string or os.getenv('SQLALCHEMY_DATABASE_URI')
+    app.config['SQLALCHEMY_DATABASE_URI'] = connection_string or os.getenv('SQL_ALCHEMY_CONNECTION')
     app.config['SESSION_COOKIE_NAME'] = 'taskflowsession'
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['PERMANENT_SESSION_LIFETIME'] = 43200
