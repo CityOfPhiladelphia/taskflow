@@ -447,6 +447,9 @@ class User(UserAuthMixin, UserMixin, BaseModel):
     id = Column(Integer, primary_key=True)
     active = Column(Boolean, nullable=False)
     email = Column(String)
+    ## username from restful-ben
+    ## hashed_password from restful-ben
+    ## password property from restful-ben
     role = Column(Enum('normal','admin', name='user_roles'), nullable=False)
     created_at = Column(DateTime,
                         nullable=False,
