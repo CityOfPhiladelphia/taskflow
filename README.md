@@ -53,7 +53,7 @@ A pull worker is a process that directly pulls tasks off the queue and executes 
 
 Creates a new Task definiton that can be used to schedule tasks and create task instances.
 
-```
+```python
 task_foo = Task(
 	name=None, # Required - name of the task, like 'push_new_accounts'
 	workflow=None, # workflow the task is associated with
@@ -77,7 +77,7 @@ task_foo.depends_on(task_bar) # Task.depends_on tells Taskflow that one Task is 
 
 To create a task with executable python code, override the `execute` function on an inherited class.
 
-```
+```python
 class MyTask(Task):
 	def execute(self, task_instance):
 		print('Any sort of python I want')
@@ -87,7 +87,7 @@ class MyTask(Task):
 
 Creates a new Workflow definiton that can be used to schedule workflows and create workflow instances.
 
-```
+```python
 workflow_foo = Workflow(
 	name=None, # Required. Name of the workflow like 'salesforce_etl'
 	active=False, # wether the workflow is active, if false, it will not be sceduled
@@ -105,7 +105,7 @@ workflow_foo = Workflow(
 
 The Taskflow class is used to create an instance of Taskflow and associate your Tasks and Workflows.
 
-```
+```python
 taskflow = Taskflow()
 
 # These function take arrays of Workflows and Tasks (not associated to a Workflow) and add them to Taskflow
