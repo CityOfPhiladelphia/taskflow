@@ -17,7 +17,7 @@ def create_app(taskflow_instance, connection_string=None, secret_key=None):
     app.config['SESSION_COOKIE_NAME'] = 'taskflowsession'
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['PERMANENT_SESSION_LIFETIME'] = 43200
-    app.config['SECRET_KEY'] = secret_key or os.getenv('SECRET_KEY')
+    app.config['SECRET_KEY'] = secret_key or os.getenv('FLASK_SESSION_SECRET_KEY')
 
     db = SQLAlchemy(metadata=metadata, model_class=BaseModel)
 
