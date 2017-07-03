@@ -4,7 +4,6 @@ from distutils.core import setup
 from setuptools import find_packages
 
 setup(
-        'jsontableschema_sql==0.8.0',
     name='taskflow',
     version='0.0.2',
     packages=find_packages(),
