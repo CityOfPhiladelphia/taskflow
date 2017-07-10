@@ -104,12 +104,14 @@ class Scheduler(object):
             self.logger.info('Workflow {} - {} failed'.format(workflow_instance.workflow_name, workflow_instance.id))
             if not self.dry_run:
                 session.commit()
+                self.taskflow.monitoring.workflow_failed(workflow_instance)
         elif total_complete_steps == len(dep_graph):
             workflow_instance.status = 'success'
             workflow_instance.ended_at = self.now()
             self.logger.info('Workflow {} - {} succeeded'.format(workflow_instance.workflow_name, workflow_instance.id))
             if not self.dry_run:
                 session.commit()
+                self.taskflow.monitoring.workflow_success(workflow_instance)
 
     def queue_workflow(self, session, workflow, run_at):
         workflow_instance = workflow.get_new_instance(
@@ -164,7 +166,6 @@ class Scheduler(object):
                                         .order_by(instance_class.run_at.desc())\
                                         .first()
 
-                ## TODO: can there be a running and queued instance ?
                 if not most_recent_instance or most_recent_instance.status in ['success','failed']:
                     if not most_recent_instance: ## first run
                         next_run = item.next_run(base_time=now)
@@ -253,5 +254,9 @@ class Scheduler(object):
         self.logger.info('Failing timed out tasks')
 
         self.fail_timedout_task_instances(session)
+
+        if not self.dry_run:
+            self.logger.info('Sending Heartbeat')
+            self.taskflow.monitoring.heartbeat_scheduler()
 
         self.logger.info('*** End Scheduler Run ***')

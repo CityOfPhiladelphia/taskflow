@@ -183,7 +183,7 @@ def test_succeed_task(dbsession, engine):
     assert pulled_task_instance.started_at == datetime(2017, 6, 4, 6, 0, 12)
     assert pulled_task_instance.worker_id == 'test'
 
-    pulled_task_instance.succeed(dbsession, now=datetime(2017, 6, 4, 6, 0, 15))
+    pulled_task_instance.succeed(dbsession, taskflow, now=datetime(2017, 6, 4, 6, 0, 15))
     dbsession.refresh(pulled_task_instance)
 
     assert pulled_task_instance.status == 'success'
@@ -211,7 +211,7 @@ def test_fail_task(dbsession, engine):
     assert pulled_task_instance.started_at == datetime(2017, 6, 4, 6, 0, 12)
     assert pulled_task_instance.worker_id == 'test'
 
-    pulled_task_instance.fail(dbsession, now=datetime(2017, 6, 4, 6, 0, 15))
+    pulled_task_instance.fail(dbsession, taskflow, now=datetime(2017, 6, 4, 6, 0, 15))
     dbsession.refresh(pulled_task_instance)
 
     assert pulled_task_instance.status == 'failed'
@@ -311,7 +311,7 @@ def test_task_retry_success(dbsession, engine):
     assert pulled_task_instance.started_at == now
     assert pulled_task_instance.worker_id == 'test'
 
-    pulled_task_instance.fail(dbsession, now=datetime(2017, 6, 4, 6, 0, 15))
+    pulled_task_instance.fail(dbsession, taskflow, now=datetime(2017, 6, 4, 6, 0, 15))
     dbsession.refresh(pulled_task_instance)
 
     assert pulled_task_instance.status == 'retry'
@@ -330,7 +330,7 @@ def test_task_retry_success(dbsession, engine):
     assert pulled_task_instance.attempts == 2
     assert pulled_task_instance.worker_id == 'test2'
 
-    pulled_task_instance.succeed(dbsession, now=datetime(2017, 6, 4, 6, 5, 20))
+    pulled_task_instance.succeed(dbsession, taskflow, now=datetime(2017, 6, 4, 6, 5, 20))
     dbsession.refresh(pulled_task_instance)
 
     assert pulled_task_instance.status == 'success'
@@ -360,7 +360,7 @@ def test_task_retry_fail(dbsession, engine):
     assert pulled_task_instance.started_at == now
     assert pulled_task_instance.worker_id == 'test'
 
-    pulled_task_instance.fail(dbsession, now=datetime(2017, 6, 4, 6, 0, 15))
+    pulled_task_instance.fail(dbsession, taskflow, now=datetime(2017, 6, 4, 6, 0, 15))
     dbsession.refresh(pulled_task_instance)
 
     assert pulled_task_instance.status == 'retry'
@@ -375,7 +375,7 @@ def test_task_retry_fail(dbsession, engine):
     assert pulled_task_instance.attempts == 2
     assert pulled_task_instance.worker_id == 'test2'
 
-    pulled_task_instance.fail(dbsession, now=datetime(2017, 6, 4, 6, 5, 20))
+    pulled_task_instance.fail(dbsession, taskflow, now=datetime(2017, 6, 4, 6, 5, 20))
     dbsession.refresh(pulled_task_instance)
 
     assert pulled_task_instance.status == 'failed'

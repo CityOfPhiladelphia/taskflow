@@ -22,6 +22,8 @@ from croniter import croniter
 from restful_ben.auth import UserAuthMixin
 from flask_login import UserMixin
 
+from taskflow.monitoring.base import Monitor
+
 metadata = MetaData()
 BaseModel = declarative_base(metadata=metadata)
 
@@ -220,10 +222,15 @@ task_names_filter = '\n       task_instances.name = ANY(:task_names)\n       AND
 push_filter = '\n       task_instances.push = true\n       AND'
 
 class Taskflow(object):
-    def __init__(self):
+    def __init__(self, monitoring=None):
         self._workflows = dict()
         self._tasks = dict()
         self._push_workers = dict()
+
+        self.monitoring = monitoring or Monitor()
+
+    def set_monitoring(self, monitor):
+        self.monitoring = monitor
 
     def add_workflow(self, workflow):
         self._workflows[workflow.name] = workflow
@@ -350,7 +357,7 @@ class SchedulableInstance(BaseModel):
                         server_default=func.now(),
                         onupdate=func.now())
 
-    def complete(self, session, status, now=None):
+    def complete(self, session, taskflow, status, now=None):
         if now == None:
             now = datetime.utcnow()
 
@@ -359,10 +366,15 @@ class SchedulableInstance(BaseModel):
 
         session.commit()
 
-    def succeed(self, session, now=None):
-        self.complete(session, 'success', now=now)
+        if status == 'success':
+            taskflow.monitoring.task_success(self)
+        else:
+            taskflow.monitoring.task_failed(self)
 
-    def fail(self, session, now=None):
+    def succeed(self, session, taskflow, now=None):
+        self.complete(session, taskflow, 'success', now=now)
+
+    def fail(self, session, taskflow, now=None):
         if now == None:
             now = datetime.utcnow()
 
@@ -370,8 +382,9 @@ class SchedulableInstance(BaseModel):
             self.status = 'retry'
             self.locked_at = now
             session.commit()
+            taskflow.monitoring.task_retry(self)
         else:
-            self.complete(session, 'failed', now=now)
+            self.complete(session, taskflow, 'failed', now=now)
 
 @listens_for(SchedulableInstance, 'instrument_class', propagate=True)
 def receive_mapper_configured(mapper, class_):
