@@ -30,6 +30,11 @@ class AWSMonitor(Monitor):
             MetricData=[
                 {
                     'MetricName': self.metric_prefix + 'task_retry',
+                    'Value': 1,
+                    'Unit': 'Count'
+                },
+                {
+                    'MetricName': self.metric_prefix + 'task_retry',
                     'Dimensions': [
                         {
                             'Name': 'task_name',
@@ -45,6 +50,11 @@ class AWSMonitor(Monitor):
         self.cloudwatch.put_metric_data(
             Namespace=self.metric_namespace,
             MetricData=[
+                {
+                    'MetricName': self.metric_prefix + 'task_failure',
+                    'Value': 1,
+                    'Unit': 'Count'
+                },
                 {
                     'MetricName': self.metric_prefix + 'task_failure',
                     'Dimensions': [
@@ -64,6 +74,11 @@ class AWSMonitor(Monitor):
             MetricData=[
                 {
                     'MetricName': self.metric_prefix + 'task_success',
+                    'Value': 1,
+                    'Unit': 'Count'
+                },
+                {
+                    'MetricName': self.metric_prefix + 'task_success',
                     'Dimensions': [
                         {
                             'Name': 'task_name',
@@ -81,6 +96,11 @@ class AWSMonitor(Monitor):
             MetricData=[
                 {
                     'MetricName': self.metric_prefix + 'workflow_failure',
+                    'Value': 1,
+                    'Unit': 'Count'
+                },
+                {
+                    'MetricName': self.metric_prefix + 'workflow_failure',
                     'Dimensions': [
                         {
                             'Name': 'workflow_name',
@@ -96,6 +116,11 @@ class AWSMonitor(Monitor):
         self.cloudwatch.put_metric_data(
             Namespace=self.metric_namespace,
             MetricData=[
+                {
+                    'MetricName': self.metric_prefix + 'workflow_success',
+                    'Value': 1,
+                    'Unit': 'Count'
+                },
                 {
                     'MetricName': self.metric_prefix + 'workflow_success',
                     'Dimensions': [
