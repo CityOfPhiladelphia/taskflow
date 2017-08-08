@@ -92,10 +92,13 @@ class SlackMonitor(MonitorDestination):
         }]
 
         if item.scheduled:
-            workflow = self.taskflow.get_workflow(item.workflow_name)
+            if isinstance(item, WorkflowInstance):
+                schedulable = self.taskflow.get_workflow(item.workflow_name)
+            else:
+                schedulable = self.taskflow.get_task(item.task_name)
             attachments[0]['fields'].append({
                 'title': 'Schedule',
-                'value': '{} ({})'.format(get_description(workflow.schedule), workflow.schedule)
+                'value': '{} ({})'.format(get_description(schedulable.schedule), schedulable.schedule)
             })
 
         if failed_task_attachments:
