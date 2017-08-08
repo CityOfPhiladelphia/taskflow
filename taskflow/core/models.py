@@ -269,6 +269,8 @@ class Taskflow(object):
         self._push_workers[push_worker.push_type] = push_worker
 
     def get_push_worker(self, push_type):
+        if push_type not in self._push_workers:
+            return None
         return self._push_workers[push_type]
 
     def sync_tasks(self, session, tasks):

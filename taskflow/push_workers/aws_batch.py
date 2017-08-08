@@ -17,6 +17,18 @@ class AWSBatchPushWorker(PushWorker):
         self.default_job_queue = default_job_queue
         self.default_job_definition = default_job_definition
 
+    def get_log_url(self, task_instance):
+        try:
+            push_state = task_instance.push_state
+            if push_state and 'taskArn' in push_state:
+                task_id = re.match(r'task/(.+)', push_state['taskArn']).groups()[0]
+
+                return '{}/{}/{}'.format(push_state['jobName'][:50], push_state['jobId'], task_id)
+        except:
+            self.logger.exception('Exception getting AWS Batch log URL')
+
+        return None
+
     def sync_task_instance_states(self, session, dry_run, task_instances):
         jobs = dict()
         for task_instance in task_instances:
@@ -41,6 +53,7 @@ class AWSBatchPushWorker(PushWorker):
             task_instance = jobs[job['jobId']]
             if task_instance.status != status:
                 task_instance.status = status
+                task_instance.push_state = job
 
         if not dry_run:
             session.commit()

@@ -1,8 +1,8 @@
 import boto3
 
-from .base import Monitor
+from .base import MonitorDestination
 
-class AWSMonitor(Monitor):
+class AWSMonitor(MonitorDestination):
     def __init__(self,
                  metric_prefix='',
                  metric_namespace='taskflow',

@@ -5,12 +5,13 @@ from setuptools import find_packages
 
 setup(
     name='taskflow',
-    version='0.0.2',
+    version='0.1.0',
     packages=find_packages(),
     install_requires=[
         'alembic==0.9.2',
         'boto3==1.4.4',
         'click==6.7',
+        'cron-descriptor==1.2.10',
         'croniter==0.3.17',
         'Flask==0.12.2',
         'Flask-Cors==3.0.2',
@@ -27,6 +28,6 @@ setup(
         'toposort==1.5'
     ],
     dependency_links=[
-        'https://github.com/CityOfPhiladelphia/restful-ben/tarball/master#egg=restful_ben-0.1.0'
+        'https://github.com/CityOfPhiladelphia/restful-ben/tarball/0.0.1#egg=restful_ben-0.1.0'
     ],
 )
