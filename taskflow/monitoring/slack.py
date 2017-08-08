@@ -21,6 +21,8 @@ class SlackMonitor(MonitorDestination):
         return None
 
     def get_message(self, session, item):
+        failed_task_attachments = None
+
         if isinstance(item, WorkflowInstance):
             item_type = 'Workflow'
             name = item.workflow_name
