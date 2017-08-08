@@ -62,12 +62,12 @@ def test_slack_monitor(dbsession, workflows):
 
     slack_url = 'http://fakeurl.com/foo'
 
-    slack_monitor = SlackMonitor(dbsession, taskflow, slack_url=slack_url)
+    slack_monitor = SlackMonitor(taskflow, slack_url=slack_url)
 
     with requests_mock.Mocker() as m:
         m.post(slack_url)
 
-        slack_monitor.workflow_failed(workflow_instance)
+        slack_monitor.workflow_failed(dbsession, workflow_instance)
 
         assert m.called
         assert m.call_count == 1

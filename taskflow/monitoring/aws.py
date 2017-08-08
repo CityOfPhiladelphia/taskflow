@@ -13,7 +13,7 @@ class AWSMonitor(MonitorDestination):
 
         super(AWSMonitor, self).__init__(*args, **kwargs)
 
-    def heartbeat_scheduler(self):
+    def heartbeat_scheduler(self, session):
         self.cloudwatch.put_metric_data(
             Namespace=self.metric_namespace,
             MetricData=[
@@ -24,7 +24,7 @@ class AWSMonitor(MonitorDestination):
                 }
             ])
 
-    def task_retry(self, task_instance):
+    def task_retry(self, session, task_instance):
         self.cloudwatch.put_metric_data(
             Namespace=self.metric_namespace,
             MetricData=[
@@ -46,7 +46,7 @@ class AWSMonitor(MonitorDestination):
                 }
             ])
 
-    def task_failed(self, task_instance):
+    def task_failed(self, session, task_instance):
         self.cloudwatch.put_metric_data(
             Namespace=self.metric_namespace,
             MetricData=[
@@ -68,7 +68,7 @@ class AWSMonitor(MonitorDestination):
                 }
             ])
 
-    def task_success(self, task_instance):
+    def task_success(self, session, task_instance):
         self.cloudwatch.put_metric_data(
             Namespace=self.metric_namespace,
             MetricData=[
@@ -90,7 +90,7 @@ class AWSMonitor(MonitorDestination):
                 }
             ])
 
-    def workflow_failed(self, workflow_instance):
+    def workflow_failed(self, session, workflow_instance):
         self.cloudwatch.put_metric_data(
             Namespace=self.metric_namespace,
             MetricData=[
@@ -112,7 +112,7 @@ class AWSMonitor(MonitorDestination):
                 }
             ])
 
-    def workflow_success(self, workflow_instance):
+    def workflow_success(self, session, workflow_instance):
         self.cloudwatch.put_metric_data(
             Namespace=self.metric_namespace,
             MetricData=[

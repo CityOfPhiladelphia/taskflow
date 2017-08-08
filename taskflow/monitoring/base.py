@@ -14,40 +14,40 @@ class Monitor(object):
                 self.logger.exception('Exception trying to call `{}` on the `{}` monitor.'\
                                       .format(fn_name, destination.__class__.__name__))
 
-    def heartbeat_scheduler(self):
-        self.call_destinations('heartbeat_scheduler')
+    def heartbeat_scheduler(self, *args):
+        self.call_destinations('heartbeat_scheduler', *args)
 
-    def task_retry(self, task_instance):
-        self.call_destinations('task_retry', task_instance)
+    def task_retry(self, *args):
+        self.call_destinations('task_retry', *args)
 
-    def task_failed(self, task_instance):
-        self.call_destinations('task_failed', task_instance)
+    def task_failed(self, *args):
+        self.call_destinations('task_failed', *args)
 
-    def task_success(self, task_instance):
-        self.call_destinations('task_success', task_instance)
+    def task_success(self, *args):
+        self.call_destinations('task_success', *args)
 
-    def workflow_failed(self, workflow_instance):
-        self.call_destinations('workflow_failed', workflow_instance)
+    def workflow_failed(self, *args):
+        self.call_destinations('workflow_failed', *args)
 
-    def workflow_success(self, workflow_instance):
-        self.call_destinations('workflow_success', workflow_instance)
+    def workflow_success(self, *args):
+        self.call_destinations('workflow_success', *args)
 
 
 class MonitorDestination(object):
-    def heartbeat_scheduler(self):
+    def heartbeat_scheduler(self, session):
         pass
 
-    def task_retry(self, task_instance):
+    def task_retry(self, session, task_instance):
         pass
 
-    def task_failed(self, task_instance):
+    def task_failed(self, session, task_instance):
         pass
 
-    def task_success(self, task_instance):
+    def task_success(self, session, task_instance):
         pass
 
-    def workflow_failed(self, workflow_instance):
+    def workflow_failed(self, session, workflow_instance):
         pass
 
-    def workflow_success(self, workflow_instance):
+    def workflow_success(self, session, workflow_instance):
         pass

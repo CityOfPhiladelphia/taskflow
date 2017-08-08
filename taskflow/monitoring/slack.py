@@ -8,9 +8,8 @@ from taskflow import WorkflowInstance, TaskInstance
 from .base import MonitorDestination
 
 class SlackMonitor(MonitorDestination):
-    def __init__(self, session, taskflow, slack_url=None):
+    def __init__(self, taskflow, slack_url=None):
         self.slack_url = slack_url or os.getenv('SLACK_WEBHOOK_URL')
-        self.session = session
         self.taskflow = taskflow
 
     def get_log_url(self, failed_task):
@@ -20,12 +19,12 @@ class SlackMonitor(MonitorDestination):
             return push_worker.get_log_url(failed_task)
         return None
 
-    def get_message(self, item):
+    def get_message(self, session, item):
         if isinstance(item, WorkflowInstance):
             item_type = 'Workflow'
             name = item.workflow_name
 
-            failed_tasks = self.session.query(TaskInstance)\
+            failed_tasks = session.query(TaskInstance)\
                 .filter(TaskInstance.workflow_instance_id == item.id,
                         TaskInstance.status == 'failed')\
                 .all()
@@ -118,25 +117,25 @@ class SlackMonitor(MonitorDestination):
             data=json.dumps(message),
             headers={'Content-Type': 'application/json'})
 
-    def heartbeat_scheduler(self):
+    def heartbeat_scheduler(self, session):
         pass
 
-    def task_retry(self, task_instance):
+    def task_retry(self, session, task_instance):
         pass
 
-    def task_failed(self, task_instance):
+    def task_failed(self, session, task_instance):
         ## only alert on tasks not associated with a workflow.
         ## Task failures will bubble up to the workflow
         if task_instance.workflow_instance_id == None:
-            message = self.get_message(task_instance)
+            message = self.get_message(session, task_instance)
             self.send_to_slack(message)
 
-    def task_success(self, task_instance):
+    def task_success(self, session, task_instance):
         pass
 
-    def workflow_failed(self, workflow_instance):
-        message = self.get_message(workflow_instance)
+    def workflow_failed(self, session, workflow_instance):
+        message = self.get_message(session, workflow_instance)
         self.send_to_slack(message)
 
-    def workflow_success(self, workflow_instance):
+    def workflow_success(self, session, workflow_instance):
         pass

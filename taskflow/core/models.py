@@ -229,8 +229,8 @@ class Taskflow(object):
 
         self.monitoring = monitoring or Monitor()
 
-    def set_monitoring(self, monitor):
-        self.monitoring = monitor
+    def set_monitoring(self, monitoring):
+        self.monitoring = monitoring
 
     def add_workflow(self, workflow):
         self._workflows[workflow.name] = workflow
@@ -369,9 +369,9 @@ class SchedulableInstance(BaseModel):
         session.commit()
 
         if status == 'success':
-            taskflow.monitoring.task_success(self)
+            taskflow.monitoring.task_success(session, self)
         else:
-            taskflow.monitoring.task_failed(self)
+            taskflow.monitoring.task_failed(session, self)
 
     def succeed(self, session, taskflow, now=None):
         self.complete(session, taskflow, 'success', now=now)
@@ -384,7 +384,7 @@ class SchedulableInstance(BaseModel):
             self.status = 'retry'
             self.locked_at = now
             session.commit()
-            taskflow.monitoring.task_retry(self)
+            taskflow.monitoring.task_retry(session, self)
         else:
             self.complete(session, taskflow, 'failed', now=now)
 
