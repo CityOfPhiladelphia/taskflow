@@ -376,15 +376,17 @@ class SchedulableInstance(BaseModel):
     def succeed(self, session, taskflow, now=None):
         self.complete(session, taskflow, 'success', now=now)
 
-    def fail(self, session, taskflow, now=None):
+    def fail(self, session, taskflow, now=None, dry_run=False):
         if now == None:
             now = datetime.utcnow()
 
         if isinstance(self, TaskInstance) and self.attempts < self.max_attempts:
             self.status = 'retry'
             self.locked_at = now
-            session.commit()
-            taskflow.monitoring.task_retry(session, self)
+
+            if not dry_run:
+                session.commit()
+                taskflow.monitoring.task_retry(session, self)
         else:
             self.complete(session, taskflow, 'failed', now=now)
 

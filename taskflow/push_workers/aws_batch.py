@@ -29,7 +29,7 @@ class AWSBatchPushWorker(PushWorker):
 
         return None
 
-    def sync_task_instance_states(self, session, dry_run, task_instances):
+    def sync_task_instance_states(self, session, dry_run, task_instances, now):
         jobs = dict()
         for task_instance in task_instances:
             jobs[task_instance.push_state['jobId']] = task_instance
@@ -52,8 +52,12 @@ class AWSBatchPushWorker(PushWorker):
 
             task_instance = jobs[job['jobId']]
             if task_instance.status != status:
-                task_instance.status = status
                 task_instance.push_state = job
+
+                if status == 'failed':
+                    task_instance.fail(session, self.taskflow, now=now, dry_run=dry_run)
+                else:
+                    task_instance.status = status
 
         if not dry_run:
             session.commit()

@@ -32,7 +32,7 @@ class Pusher(object):
 
             try:
                 push_worker = self.taskflow.get_push_worker(push_destination)
-                push_worker.sync_task_instance_states(session, self.dry_run, task_instances)
+                push_worker.sync_task_instance_states(session, self.dry_run, task_instances, self.now())
             except Exception:
                 ## TODO: rollback?
                 self.logger.exception('Exception syncing with %s', push_destination)
