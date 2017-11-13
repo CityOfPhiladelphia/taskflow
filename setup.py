@@ -8,7 +8,7 @@ setup(
     version='0.2.4',
     packages=find_packages(),
     install_requires=[
-        'alembic==0.9.2',
+        'alembic==0.9.6',
         'boto3==1.4.4',
         'click==6.7',
         'cron-descriptor==1.2.10',
