@@ -88,6 +88,7 @@ class BashTask(Task):
                 elif 'input_file' in self.params and self.params['input_file'] != None:
                     inputpath = replace_environment_variables(self.params['input_file'])
 
+                input_file = None
                 if inputpath:
                     logger.info('Streaming to STDIN from: %s', inputpath)
                     input_file = fopen(replace_environment_variables(self.params['input_file']))
@@ -98,6 +99,7 @@ class BashTask(Task):
                 elif 'output_file' in self.params and self.params['output_file'] != None:
                     outpath = replace_environment_variables(self.params['output_file'])
 
+                out = None
                 if outpath:
                     logger.info('Streaming STDOUT to: %s', outpath)
                     out = fopen(outpath, mode='w')
