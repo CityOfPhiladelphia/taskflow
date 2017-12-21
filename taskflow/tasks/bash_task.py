@@ -57,6 +57,15 @@ def TemporaryDirectory(suffix='', prefix=None, dir=None):
             if e.errno != errno.ENOENT:
                 raise e
 
+def replace_environment_variables(input_str):
+    env_vars = re.findall(r'"?\$([A-Z0-9_-]+)"?', input_str)
+
+    out_str = input_str
+    for env_var in env_vars:
+        value = os.getenv(env_var, '')
+        out_str = re.sub('"?\$' + env_var + '"?', value, out_str)
+    return out_str
+
 class BashTask(Task):
     def get_command(self):
         return self.params['command']
@@ -76,15 +85,15 @@ class BashTask(Task):
 
                 input_file = None
                 if 'input_file' in task_instance.params and task_instance.params['input_file'] != None:
-                    input_file = fopen(task_instance.params['input_file'])
+                    input_file = fopen(replace_environment_variables(task_instance.params['input_file']))
                 elif 'input_file' in self.params and self.params['input_file'] != None:
-                    input_file = fopen(self.params['input_file'])
+                    input_file = fopen(replace_environment_variables(self.params['input_file']))
 
                 out = None
                 if 'output_file' in task_instance.params and task_instance.params['output_file'] != None:
-                    out = fopen(task_instance.params['output_file'], mode='w')
+                    out = fopen(replace_environment_variables(task_instance.params['output_file']), mode='w')
                 elif 'output_file' in self.params and self.params['output_file'] != None:
-                    out = fopen(self.params['output_file'], mode='w')
+                    out = fopen(replace_environment_variables(self.params['output_file']), mode='w')
 
                 ON_POSIX = 'posix' in sys.builtin_module_names
 
