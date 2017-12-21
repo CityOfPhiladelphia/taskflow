@@ -38,7 +38,6 @@ def pipe_stream(stream1, stream2):
     def stream_helper(stream1, stream2):
         for line in iter(stream1.readline, b''):
             stream2.write(line)
-        stream2.close()
 
     t = Thread(target=stream_helper, args=(stream1, stream2))
     t.daemon = True
@@ -83,17 +82,25 @@ class BashTask(Task):
                 logger.info('Temporary script location: %s', script_location)
                 logger.info('Running command: %s', bash_command)
 
-                input_file = None
+                inputpath = None
                 if 'input_file' in task_instance.params and task_instance.params['input_file'] != None:
-                    input_file = fopen(replace_environment_variables(task_instance.params['input_file']))
+                    inputpath = replace_environment_variables(task_instance.params['input_file'])
                 elif 'input_file' in self.params and self.params['input_file'] != None:
+                    inputpath = replace_environment_variables(self.params['input_file'])
+
+                if inputpath:
+                    logger.info('Streaming to STDIN from: %s', inputpath)
                     input_file = fopen(replace_environment_variables(self.params['input_file']))
 
-                out = None
+                outpath = None
                 if 'output_file' in task_instance.params and task_instance.params['output_file'] != None:
-                    out = fopen(replace_environment_variables(task_instance.params['output_file']), mode='w')
+                    outpath = replace_environment_variables(task_instance.params['output_file'])
                 elif 'output_file' in self.params and self.params['output_file'] != None:
-                    out = fopen(replace_environment_variables(self.params['output_file']), mode='w')
+                    outpath = replace_environment_variables(self.params['output_file'])
+
+                if outpath:
+                    logger.info('Streaming STDOUT to: %s', outpath)
+                    out = fopen(outpath, mode='w')
 
                 ON_POSIX = 'posix' in sys.builtin_module_names
 
@@ -122,6 +129,9 @@ class BashTask(Task):
 
                 if input_file:
                     input_file.read_key.close(fast=True)
+
+                if out:
+                    out.close()
 
                 logger.info('Command exited with return code %s', sp.returncode)
 

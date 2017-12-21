@@ -23,7 +23,7 @@ setup(
         'pytest==3.1.1',
         'restful_ben==0.1.0',
         'requests==2.17.3',
-        'smart-open==1.5.3',
+        'smart-open==1.5.5',
         'SQLAlchemy==1.1.10',
         'toposort==1.5'
     ],
