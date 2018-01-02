@@ -103,9 +103,11 @@ class BashTask(Task):
 
                 self.sp = sp
 
+                input_thread = None
                 if input_file:
                     input_thread = pipe_stream(input_file, sp.stdin)
 
+                output_thread = None
                 if output_file:
                     output_thread = pipe_stream(sp.stdout, output_file)
 
