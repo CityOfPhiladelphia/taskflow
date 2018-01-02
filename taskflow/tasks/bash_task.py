@@ -4,6 +4,7 @@ import logging
 import re
 import sys
 import shutil
+import time
 from subprocess import Popen, PIPE
 from tempfile import gettempdir, NamedTemporaryFile
 from threading import Thread
@@ -91,7 +92,7 @@ class BashTask(Task):
                 input_file = None
                 if inputpath:
                     logger.info('Streaming to STDIN from: %s', inputpath)
-                    input_file = fopen(replace_environment_variables(self.params['input_file']))
+                    input_file = fopen(inputpath)
 
                 outpath = None
                 if 'output_file' in task_instance.params and task_instance.params['output_file'] != None:
@@ -99,17 +100,17 @@ class BashTask(Task):
                 elif 'output_file' in self.params and self.params['output_file'] != None:
                     outpath = replace_environment_variables(self.params['output_file'])
 
-                out = None
+                output_file = None
                 if outpath:
                     logger.info('Streaming STDOUT to: %s', outpath)
-                    out = fopen(outpath, mode='w')
+                    output_file = fopen(outpath, mode='w')
 
                 ON_POSIX = 'posix' in sys.builtin_module_names
 
                 sp = Popen(
                     ['bash', fname],
                     stdin=PIPE if input_file else None,
-                    stdout=PIPE if out else None,
+                    stdout=PIPE if output_file else None,
                     stderr=PIPE,
                     cwd=tmp_dir,
                     preexec_fn=os.setsid,
@@ -121,19 +122,19 @@ class BashTask(Task):
                 if input_file:
                     pipe_stream(input_file, sp.stdin)
 
-                if out:
-                    pipe_stream(sp.stdout, out)
+                if output_file:
+                    pipe_stream(sp.stdout, output_file)
 
                 for line in iter(sp.stderr.readline, b''):
                     logger.info(line)
 
                 sp.wait()
 
-                if input_file:
-                    input_file.read_key.close(fast=True)
-
-                if out:
-                    out.close()
+                if output_file:
+                    logger.info('Closing STDOUT file')
+                    start = time.time()
+                    output_file.close()
+                    logger.info('STDOUT file written - {}s'.format(time.time() - start))
 
                 logger.info('Command exited with return code %s', sp.returncode)
 
