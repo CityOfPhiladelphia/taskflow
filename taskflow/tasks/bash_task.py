@@ -17,24 +17,6 @@ import boto3
 
 from taskflow import Task
 
-s3_regex = r'^s3://([^/]+)/(.+)'
-
-def fopen(file, mode='r'):
-    # HACK: get boto working with instance credentials via boto3
-    match = re.match(s3_regex, file)
-    if match != None:
-        client = boto3.client('s3')
-        s3_connection = boto.connect_s3(
-            aws_access_key_id=client._request_signer._credentials.access_key,
-            aws_secret_access_key=client._request_signer._credentials.secret_key,
-            security_token=client._request_signer._credentials.token)
-        bucket = s3_connection.get_bucket(match.groups()[0])
-        if mode == 'w':
-            file = bucket.get_key(match.groups()[1], validate=False)
-        else:
-            file = bucket.get_key(match.groups()[1])
-    return smart_open(file, mode=mode)
-
 def pipe_stream(stream1, stream2):
     def stream_helper(stream1, stream2):
         for line in iter(stream1.readline, b''):
@@ -92,7 +74,7 @@ class BashTask(Task):
                 input_file = None
                 if inputpath:
                     logger.info('Streaming to STDIN from: %s', inputpath)
-                    input_file = fopen(inputpath)
+                    input_file = smart_open(inputpath)
 
                 outpath = None
                 if 'output_file' in task_instance.params and task_instance.params['output_file'] != None:
@@ -103,7 +85,7 @@ class BashTask(Task):
                 output_file = None
                 if outpath:
                     logger.info('Streaming STDOUT to: %s', outpath)
-                    output_file = fopen(outpath, mode='w')
+                    output_file = smart_open(outpath, mode='w')
 
                 ON_POSIX = 'posix' in sys.builtin_module_names
 
@@ -129,6 +111,9 @@ class BashTask(Task):
                     logger.info(line)
 
                 sp.wait()
+
+                if input_file:
+                    input_file.close()
 
                 if output_file:
                     logger.info('Closing STDOUT file')
