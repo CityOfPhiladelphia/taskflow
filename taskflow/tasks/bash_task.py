@@ -20,7 +20,7 @@ from taskflow import Task
 def pipe_stream(stream1, stream2):
     def stream_helper(stream1, stream2):
         for line in iter(stream1.readline, b''):
-            stream2.write(line.encode('utf-8'))
+            stream2.write(line)
 
     t = Thread(target=stream_helper, args=(stream1, stream2))
     t.daemon = True
@@ -76,7 +76,7 @@ class BashTask(Task):
                 input_file = None
                 if inputpath:
                     logger.info('Streaming to STDIN from: %s', inputpath)
-                    input_file = smart_open(inputpath)
+                    input_file = smart_open(inputpath, mode='rb')
 
                 outpath = None
                 if 'output_file' in task_instance.params and task_instance.params['output_file'] != None:
@@ -87,7 +87,7 @@ class BashTask(Task):
                 output_file = None
                 if outpath:
                     logger.info('Streaming STDOUT to: %s', outpath)
-                    output_file = smart_open(outpath, mode='w')
+                    output_file = smart_open(outpath, mode='wb')
 
                 ON_POSIX = 'posix' in sys.builtin_module_names
 

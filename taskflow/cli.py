@@ -27,6 +27,11 @@ def get_logging():
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
 
+    def exception_handler(type, value, tb):
+        logger.exception("Uncaught exception: {0}".format(str(value)))
+
+    sys.excepthook = exception_handler
+
 def get_worker_id():
     worker_components = []
 
