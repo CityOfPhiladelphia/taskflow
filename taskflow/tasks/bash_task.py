@@ -20,11 +20,13 @@ from taskflow import Task
 def pipe_stream(stream1, stream2):
     def stream_helper(stream1, stream2):
         for line in iter(stream1.readline, b''):
-            stream2.write(line)
+            stream2.write(line.encode('utf-8'))
 
     t = Thread(target=stream_helper, args=(stream1, stream2))
     t.daemon = True
     t.start()
+
+    return t
 
 @contextmanager
 def TemporaryDirectory(suffix='', prefix=None, dir=None):
@@ -102,15 +104,21 @@ class BashTask(Task):
                 self.sp = sp
 
                 if input_file:
-                    pipe_stream(input_file, sp.stdin)
+                    input_thread = pipe_stream(input_file, sp.stdin)
 
                 if output_file:
-                    pipe_stream(sp.stdout, output_file)
+                    output_thread = pipe_stream(sp.stdout, output_file)
 
                 for line in iter(sp.stderr.readline, b''):
                     logger.info(line)
 
                 sp.wait()
+
+                if input_thread:
+                    input_thread.join(timeout=5)
+
+                if output_thread:
+                    output_thread.join(timeout=5)
 
                 if input_file:
                     input_file.close()
